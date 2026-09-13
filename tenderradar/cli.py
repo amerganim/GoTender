@@ -2,6 +2,7 @@
 
     python -m tenderradar.cli probe    egp_tender --pages 1   # no DB needed
     python -m tenderradar.cli crawl    egp_tender [--pages N]
+    python -m tenderradar.cli serve                           # public site
     python -m tenderradar.cli schedule                        # every 30 min
     python -m tenderradar.cli health                          # §8.5 dashboard
     python -m tenderradar.cli replay   <raw_document_id>      # §8.6
@@ -72,6 +73,28 @@ async def cmd_crawl(args: argparse.Namespace) -> int:
 
 async def cmd_schedule(args: argparse.Namespace) -> int:
     await run_forever(default_interval_min=args.interval)
+    return 0
+
+
+async def cmd_serve(args: argparse.Namespace) -> int:
+    """Run the public site.
+
+    uvicorn is driven through its own Server object rather than uvicorn.run()
+    so it adopts the already-running event loop (loop="none"). On Windows
+    uvicorn would otherwise build a ProactorEventLoop, which psycopg refuses,
+    and every request would fail at the database.
+    """
+    import uvicorn
+
+    config = uvicorn.Config(
+        "tenderradar.web.app:app",
+        host=args.host,
+        port=args.port,
+        loop="none",
+        log_level="info",
+        access_log=not args.quiet,
+    )
+    await uvicorn.Server(config).serve()
     return 0
 
 
@@ -207,6 +230,12 @@ def main() -> int:
     p = sub.add_parser("schedule", help="crawl on a schedule, forever")
     p.add_argument("--interval", type=int, default=30, help="minutes")
     p.set_defaults(func=cmd_schedule)
+
+    p = sub.add_parser("serve", help="run the public tender directory")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8020)
+    p.add_argument("--quiet", action="store_true", help="suppress access log")
+    p.set_defaults(func=cmd_serve)
 
     p = sub.add_parser("health", help="freshness, yield and failures")
     p.set_defaults(func=cmd_health)

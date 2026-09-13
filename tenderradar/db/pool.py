@@ -25,7 +25,7 @@ def _require_url() -> str:
 async def get_pool() -> AsyncConnectionPool:
     global _pool
     if _pool is None:
-        _pool = AsyncConnectionPool(
+        pool = AsyncConnectionPool(
             _require_url(),
             min_size=1,
             # A solo-operator VPS and a Neon free tier both dislike large pools.
@@ -33,7 +33,15 @@ async def get_pool() -> AsyncConnectionPool:
             open=False,
             kwargs={"row_factory": dict_row},
         )
-        await _pool.open(wait=True)
+        try:
+            await pool.open(wait=True)
+        except Exception:
+            # Never cache a pool that failed to open. Doing so turns one
+            # startup failure into every later request raising PoolClosed,
+            # which hides the real cause completely.
+            await pool.close()
+            raise
+        _pool = pool
     return _pool
 
 
