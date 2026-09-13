@@ -25,6 +25,21 @@ class Settings(BaseSettings):
     crawler_max_concurrency: int = 2
     crawler_timeout_sec: float = 60.0
 
+    # Signs one-click feedback links in digest emails. Must be secret and
+    # stable: rotating it invalidates every link in every email already sent.
+    alert_token_secret: str = ""
+    # Absolute base for links in emails; relative URLs do not work in a mail
+    # client. Set to the real domain before any digest goes out.
+    site_base_url: str = "http://127.0.0.1:8020"
+    # Where digests go in dev. "console" prints, "file" writes .eml, "smtp" sends.
+    email_backend: str = "file"
+    email_from: str = "TenderRadar <alerts@example.com>"
+    email_outbox_dir: Path = Path("storage/outbox")
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+
     log_level: str = "INFO"
 
     @property

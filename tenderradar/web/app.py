@@ -6,6 +6,8 @@ Server-rendered on purpose: SEO is a core requirement, so no client-side SPA
 
 from __future__ import annotations
 
+import base64
+import logging
 import math
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
@@ -18,11 +20,19 @@ from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from fastapi.templating import Jinja2Templates
 
+from tenderradar.alerts import tokens
 from tenderradar.db.pool import close_pool, connection
 from tenderradar.web import queries
 from tenderradar.web.queries import TenderFilters
 
+log = logging.getLogger(__name__)
+
 DHAKA = ZoneInfo("Asia/Dhaka")
+
+# 1x1 transparent GIF, inline so open tracking needs no static file server.
+_PIXEL = base64.b64decode(
+    "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+)
 TEMPLATES = Jinja2Templates(directory=str(__file__.rsplit("app.py", 1)[0] + "templates"))
 
 
@@ -351,6 +361,121 @@ async def robots() -> str:
         "Disallow: /healthz\n"
         "\n"
         "Sitemap: /sitemap.xml\n"
+    )
+
+
+@app.get("/f/{token}", response_class=HTMLResponse)
+async def feedback_confirm(request: Request, token: str) -> Response:
+    """Landing page for a feedback link. Records NOTHING.
+
+    Mail scanners follow links -- Outlook Safe Links visits every URL in a
+    message -- so a GET that recorded a verdict would let scanners vote for
+    users who never opened the mail, corrupting the one table match precision
+    is computed from. The page posts itself for a human; a scanner runs no
+    script and casts no vote.
+    """
+    parsed = tokens.parse_feedback_token(token)
+    if parsed is None:
+        async with connection() as conn:
+            stats = await queries.site_stats(conn)
+        return TEMPLATES.TemplateResponse(
+            request, "feedback.html",
+            {"recorded": False, "stats": stats}, status_code=400,
+        )
+    _user_id, _tender_id, verdict = parsed
+    return TEMPLATES.TemplateResponse(
+        request, "feedback_confirm.html", {"token": token, "verdict": verdict}
+    )
+
+
+@app.post("/f/{token}", response_class=HTMLResponse)
+async def feedback_record(request: Request, token: str) -> Response:
+    """Record a verdict. One per user per tender; a changed mind overwrites."""
+    parsed = tokens.parse_feedback_token(token)
+    async with connection() as conn:
+        stats = await queries.site_stats(conn)
+        if parsed is None:
+            return TEMPLATES.TemplateResponse(
+                request, "feedback.html",
+                {"recorded": False, "stats": stats}, status_code=400,
+            )
+        user_id, tender_id, verdict = parsed
+        await conn.execute(
+            """
+            INSERT INTO feedback (user_id, tender_id, verdict)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (user_id, tender_id) DO UPDATE
+                SET verdict = EXCLUDED.verdict, created_at = now()
+            """,
+            (user_id, tender_id, verdict),
+        )
+        await conn.commit()
+        tender = await queries.get_tender(conn, tender_id)
+
+    opposite = "down" if verdict == "up" else "up"
+    return TEMPLATES.TemplateResponse(
+        request,
+        "feedback.html",
+        {
+            "recorded": True,
+            "verdict": verdict,
+            "tender": tender,
+            "stats": stats,
+            "opposite_token": tokens.feedback_token(user_id, tender_id, opposite),
+        },
+    )
+
+
+@app.get("/o/{token}.gif")
+async def open_pixel(token: str) -> Response:
+    """Digest open tracking.
+
+    Approximate by nature: Gmail proxies and caches images, so an open can be
+    recorded without a human looking, and an image-blocking client hides a real
+    one. Week-3 open rate is a Gate 2 number, so treat it as a trend, not a
+    measurement. Always returns the pixel, valid token or not -- a broken image
+    in someone's inbox would be worse than a missed data point.
+    """
+    alert_id = tokens.parse_open_token(token)
+    if alert_id is not None:
+        try:
+            async with connection() as conn:
+                await conn.execute(
+                    "UPDATE alerts SET opened_at = COALESCE(opened_at, now()) "
+                    "WHERE id = %s",
+                    (alert_id,),
+                )
+                await conn.commit()
+        except Exception:  # noqa: BLE001 - never fail an image request
+            log.exception("could not record open for alert %s", alert_id)
+
+    return Response(_PIXEL, media_type="image/gif", headers={
+        "Cache-Control": "no-store, no-cache, must-revalidate, private",
+    })
+
+
+@app.get("/unsubscribe/{token}", response_class=HTMLResponse)
+@app.post("/unsubscribe/{token}", response_class=HTMLResponse)
+async def unsubscribe(request: Request, token: str) -> Response:
+    """One-click unsubscribe.
+
+    Accepts GET as well as POST, deliberately. RFC 8058 one-click sends a POST,
+    but a person clicking the footer link sends a GET, and an unsubscribe that
+    fails is a spam complaint -- far more damaging to a young sending domain
+    than an accidental unsubscribe, which the user can simply reverse.
+    """
+    user_id = tokens.parse_unsubscribe_token(token)
+    async with connection() as conn:
+        stats = await queries.site_stats(conn)
+        if user_id is not None:
+            await conn.execute(
+                "UPDATE users SET unsubscribed_at = now() WHERE id = %s",
+                (user_id,),
+            )
+            await conn.commit()
+    return TEMPLATES.TemplateResponse(
+        request, "unsubscribed.html",
+        {"done": user_id is not None, "stats": stats},
     )
 
 

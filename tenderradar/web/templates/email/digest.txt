@@ -1,0 +1,15 @@
+{{ digest.items|length }} new tender{{ '' if digest.items|length == 1 else 's' }} matched to your profile.
+
+Tap a link to tell us if it was relevant - it is the only way we learn what you bid on.
+{% for item in digest.items %}{% set t = item.tender %}
+{{ loop.index }}. {{ t.title or t.package_no or 'Untitled tender' }}
+   {{ t.organization_path or '' }}
+   {{ t.procurement_nature }}{% if t.district_name %} | {{ t.district_name }}{% endif %} | {{ t.closing_at|countdown }}
+   View:      {{ item.tender_url }}
+   Relevant:  {{ item.up_url }}
+   Not for me:{{ item.down_url }}
+{% endfor %}
+Browse all live tenders: {{ base_url }}/tenders
+Unsubscribe: {{ digest.unsubscribe_url }}
+
+Sourced from the Bangladesh e-GP portal. Always check the official notice before bidding.

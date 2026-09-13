@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Thanks — TenderRadar{% endblock %}
+{% block content %}
+<div class="card" style="padding:30px;text-align:center;max-width:560px;margin:0 auto">
+  {% if recorded %}
+    <div style="font-size:40px;line-height:1">{{ '👍' if verdict == 'up' else '👎' }}</div>
+    <h1 class="page" style="margin:12px 0 6px">
+      {{ 'Noted — more like this.' if verdict == 'up' else 'Noted — fewer like this.' }}
+    </h1>
+    <p style="color:var(--muted);margin:0 0 18px">
+      This directly changes what we send you.
+    </p>
+    {% if tender %}
+    <p style="margin:0 0 18px;font-size:14px">
+      <a href="/tenders/{{ tender.id }}">{{ (tender.title or 'View tender')[:90] }}</a>
+    </p>
+    {% endif %}
+    <form method="post" action="/f/{{ opposite_token }}" style="margin:0">
+      <button type="submit" style="background:none;border:0;color:var(--muted);
+              font-size:13.5px;text-decoration:underline;cursor:pointer">
+        Actually, I meant {{ '👎 not for me' if verdict == 'up' else '👍 relevant' }}
+      </button>
+    </form>
+  {% else %}
+    <h1 class="page">That link is not valid</h1>
+    <p style="color:var(--muted)">
+      It may have been altered in transit. Open the tender from the digest again.
+    </p>
+  {% endif %}
+  <p style="margin:20px 0 0"><a href="/tenders">Browse all live tenders →</a></p>
+</div>
+{% endblock %}

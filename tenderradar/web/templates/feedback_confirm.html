@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Recording your feedback — TenderRadar{% endblock %}
+{% block head %}<meta name="robots" content="noindex,nofollow">{% endblock %}
+{% block content %}
+{# Feedback is recorded on POST, never on GET.
+
+   Mail scanners follow links: Outlook Safe Links genuinely visits every URL
+   in a message. If a GET recorded a verdict, those scanners would vote on
+   behalf of users who never opened the mail, silently poisoning the single
+   table match precision is computed from.
+
+   A human lands here and the form submits itself immediately, so it still
+   feels like one click. A scanner does not run scripts and casts no vote. #}
+<div class="card" style="padding:30px;text-align:center;max-width:520px;margin:0 auto">
+  <h1 class="page">Recording your feedback…</h1>
+  <form id="fb" method="post" action="/f/{{ token }}">
+    <noscript>
+      <p style="color:var(--muted)">Tap to confirm:</p>
+      <button type="submit" style="background:var(--brand);color:#fff;border:0;
+              padding:11px 22px;border-radius:8px;font-size:15px;cursor:pointer">
+        {{ '👍 Relevant' if verdict == 'up' else '👎 Not for me' }}
+      </button>
+    </noscript>
+  </form>
+  <script>document.getElementById('fb').submit();</script>
+</div>
+{% endblock %}

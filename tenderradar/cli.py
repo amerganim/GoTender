@@ -118,6 +118,23 @@ async def cmd_match(args: argparse.Namespace) -> int:
     return 0
 
 
+async def cmd_digest(args: argparse.Namespace) -> int:
+    """Build and send daily digests."""
+    from tenderradar.alerts import service
+
+    async with connection() as conn:
+        reports = await service.send_all(conn, dry_run=args.dry_run)
+
+    for report in reports:
+        print(report.summary())
+    if not reports:
+        print("no eligible recipients (need a verified user with an email)")
+    sent = sum(1 for r in reports if r.sent)
+    print(f"\n{sent} digest(s) sent, backend={settings.email_backend}")
+    await close_pool()
+    return 0
+
+
 async def cmd_serve(args: argparse.Namespace) -> int:
     """Run the public site.
 
@@ -281,6 +298,10 @@ def main() -> int:
     p.add_argument("--user-id", type=int, default=None)
     p.add_argument("--limit", type=int, default=50, help="matches per user")
     p.set_defaults(func=cmd_match)
+
+    p = sub.add_parser("digest", help="send daily digest emails")
+    p.add_argument("--dry-run", action="store_true", help="build but do not send")
+    p.set_defaults(func=cmd_digest)
 
     p = sub.add_parser("serve", help="run the public tender directory")
     p.add_argument("--host", default="127.0.0.1")
