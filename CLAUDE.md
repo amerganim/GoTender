@@ -450,7 +450,42 @@ Phase 1 was built before Gate 0 passed, at the operator's explicit request, to
 make crawl quality inspectable. That was a deliberate exception, not a
 precedent.
 
-## 14. Right now
+## 14. Embedding model evaluation (Sep 2026) — amends §7
+
+Measured, not assumed. 400 real tender titles from the corpus, seven realistic
+contractor profiles in English, Bangla and Banglish, scored by precision@10.
+
+**Model chosen:** `paraphrase-multilingual-mpnet-base-v2`, 768 dimensions, run
+locally through ONNX (`fastembed`, no PyTorch). Free, ~1GB, no per-tender API
+cost, nothing leaves the VPS.
+
+### Four findings that change §7
+
+1. **The corpus contains no Bangla at all.** 0.000% Bangla characters across
+   3,739 tenders. §7 says "real data is mixed Bangla/English"; for the English
+   e-GP interface we crawl, it is not. The portal has a Bangla interface we do
+   not use — worth revisiting. The Bangla problem is therefore on the **query**
+   side (a contractor's own description), not the document side.
+
+2. **Cross-lingual matching works at realistic length, and fails on short
+   phrases.** Bangla profiles scored 70% against English profiles' 73%. But
+   two-word Bangla phrases ranked an unrelated tender above the right one.
+   Profile quality matters: collect a few sentences, not keywords.
+
+3. **`multilingual-MiniLM` (384d) is unusable here.** Its Bangla embeddings
+   collapse — two unrelated Bangla phrases scored 0.440, higher than the 0.404
+   between a genuine cross-language pair. Its English is fine. Do not use it
+   for this market.
+
+4. **Layer 2 must be hybrid, not vector-only.** Embeddings scored 10/10 on
+   water and medical in both languages, but 2/10 on electrical, because a
+   generically-worded profile ("we are a contractor... for government offices")
+   matches boilerplate rather than the domain. Postgres full-text search scored
+   **10/10 on that same electrical query**. The two fail in different places:
+   embeddings carry meaning and language, FTS carries exact domain terms.
+   Combine them and keep the FTS index from Phase 1.
+
+## 15. Right now
 
 Phase 0, task 1 is **built**: source adapter framework, e-GP tender-search
 adapter, raw archive, dedup + versioning, crawl scheduler, yield monitoring.
