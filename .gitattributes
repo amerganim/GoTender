@@ -1,0 +1,32 @@
+# Developed on Windows, deployed to a Linux VPS. Normalize every text file to
+# LF both in the repository and in the working tree, so the two platforms never
+# disagree and diffs never fill with line-ending noise.
+* text=auto eol=lf
+
+# Anything the VPS executes must keep LF even when checked out on Windows.
+# A CRLF shebang fails at runtime with "bad interpreter: /bin/sh^M".
+*.sh    text eol=lf
+*.bash  text eol=lf
+
+# Windows-only helpers are the one place CRLF is correct.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Test fixtures are captured HTTP responses from the e-GP portal: a record of
+# exactly what the source returned. Git must never rewrite their bytes, or a
+# fixture silently stops matching what the parser sees in production.
+tests/fixtures/**  -text
+
+# Binary assets: never convert, never diff as text. storage/ is gitignored, but
+# *.gz is listed in case an archived raw document is ever added as a fixture.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.ico   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+
+# Better hunk headers in diffs.
+*.py    text diff=python
+*.sql   text diff=sql
