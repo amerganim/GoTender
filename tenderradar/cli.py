@@ -17,6 +17,7 @@ import sys
 
 # Importing the adapters package populates the registry.
 import tenderradar.adapters.egp  # noqa: F401
+import tenderradar.adapters.egp_offline  # noqa: F401
 from tenderradar.adapters import get_adapter, registry
 from tenderradar.adapters.base import FetchResult, PayloadKind
 from tenderradar.config import settings

@@ -485,7 +485,34 @@ cost, nothing leaves the VPS.
    embeddings carry meaning and language, FTS carries exact domain terms.
    Combine them and keep the FTS index from Phase 1.
 
-## 15. Right now
+## 15. Gate 0 coverage — measured, and §2's 8,500 does not hold
+
+The offline-tender adapter is built, and it does **not** close the gap §2
+implies. Measured 2026-09-14 by asking the portal itself how many pages each
+view holds:
+
+| e-GP view | Pages | Approx tenders | Ours |
+|---|---|---|---|
+| e-tender, Live | 38 | ~3,800 | **3,750** |
+| e-tender, Archived | 6,262 | ~626,200 | not crawled |
+| e-tender, Cancelled | 64 | ~6,400 | not crawled |
+| Offline tenders, all | 34 | ~680 | **662** (only 42 live) |
+
+**Live coverage of what e-GP actually publishes is ~99%.** The offline feed
+turned out to be mostly historical: 620 of its 662 notices had already closed.
+
+So the ~8,500 "live tender pool" in §2 is not the e-GP live count and cannot be
+reached by crawling e-GP harder. It is measuring something else — plausibly
+live plus cancelled, or a competitor counting archived notices, or a figure
+that was never verified. **Gate 0's "within 5% of Alltender's published figure"
+therefore needs re-basing on a number we can verify**, and the honest
+candidate is e-GP's own Live view, against which we currently sit at ~99%.
+
+Do not add more adapters chasing 8,500 until that figure is checked against
+Alltender's live site. Building sources to hit a number nobody has verified is
+how the budget gets spent on the wrong thing.
+
+## 16. Right now
 
 Phase 0, task 1 is **built**: source adapter framework, e-GP tender-search
 adapter, raw archive, dedup + versioning, crawl scheduler, yield monitoring.

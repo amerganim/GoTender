@@ -12,6 +12,8 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
+import tenderradar.adapters.egp  # noqa: F401
+import tenderradar.adapters.egp_offline  # noqa: F401
 from tenderradar.adapters import registry
 from tenderradar.crawl.runner import CrawlRunner
 from tenderradar.db.pool import close_pool, connection
