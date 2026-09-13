@@ -54,6 +54,8 @@ class RunReport:
     bytes_archived: int = 0
     yield_anomaly: bool = False
     baseline: Decimal | None = None
+    # Only a full sweep is a valid yield yardstick (§8.5).
+    is_full_sweep: bool = True
     status: str = "running"
     error: str | None = None
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -73,6 +75,8 @@ class RunReport:
         ]
         if self.parse_failures:
             parts.append(f"{self.parse_failures} PARSE FAILURES")
+        if not self.is_full_sweep:
+            parts.append("partial (not a baseline)")
         if self.yield_anomaly:
             parts.append(f"YIELD ANOMALY (baseline {self.baseline})")
         return " | ".join(parts)
@@ -91,11 +95,16 @@ class CrawlRunner:
         **fetch_kwargs: object,
     ) -> RunReport:
         adapter_cls = get_adapter(adapter_key)
-        report = RunReport(source_key=adapter_key)
+        # A page-capped run covers only part of the source, so it is neither
+        # judged against the baseline nor allowed to become part of it.
+        is_full_sweep = fetch_kwargs.get("max_pages") is None
+        report = RunReport(source_key=adapter_key, is_full_sweep=is_full_sweep)
 
         async with connection() as conn:
             source_id = await repo.ensure_source(conn, adapter_cls)
-            run_id = await repo.start_run(conn, source_id)
+            run_id = await repo.start_run(
+                conn, source_id, is_full_sweep=is_full_sweep
+            )
             await conn.commit()
         report.run_id = run_id
 
@@ -244,9 +253,13 @@ class CrawlRunner:
         if report.status == "failed":
             return True
         # A successful sweep that found nothing is always suspicious: the live
-        # pool is never empty.
+        # pool is never empty. True of partial runs too.
         if report.items_found == 0:
             return True
+        # A capped run is expected to be small; comparing it to a full-sweep
+        # baseline would fire on every dev run.
+        if not report.is_full_sweep:
+            return False
         if report.baseline is None:
             return False
         return Decimal(report.items_found) < report.baseline * YIELD_ANOMALY_RATIO

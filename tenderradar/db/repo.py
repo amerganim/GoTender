@@ -69,9 +69,18 @@ async def ensure_source(conn: AsyncConnection, adapter: type[SourceAdapter]) -> 
     return int(row["id"])
 
 
-async def start_run(conn: AsyncConnection, source_id: int) -> int:
+async def start_run(
+    conn: AsyncConnection, source_id: int, *, is_full_sweep: bool = True
+) -> int:
+    """Open a crawl_runs row.
+
+    is_full_sweep marks a run that swept the whole source. Only those feed the
+    yield baseline, because a page-capped dev run and a full sweep differ by a
+    factor of twenty and averaging them together is meaningless (§8.5).
+    """
     cur = await conn.execute(
-        "INSERT INTO crawl_runs (source_id) VALUES (%s) RETURNING id", (source_id,)
+        "INSERT INTO crawl_runs (source_id, is_full_sweep) VALUES (%s, %s) RETURNING id",
+        (source_id, is_full_sweep),
     )
     row = await cur.fetchone()
     assert row is not None
@@ -494,7 +503,12 @@ async def tenders_needing_detail(
 async def trailing_yield(
     conn: AsyncConnection, source_id: int, runs: int = 10
 ) -> Decimal | None:
-    """Mean items_found over recent successful runs, for §8.5 anomaly checks."""
+    """Mean items_found over recent successful FULL sweeps (§8.5).
+
+    Page-capped runs are excluded: they are legitimate crawl history but not a
+    yardstick, and letting them into the average both hides real collapses and
+    manufactures false anomalies.
+    """
     cur = await conn.execute(
         """
         SELECT AVG(items_found)::numeric AS avg_found
@@ -502,6 +516,7 @@ async def trailing_yield(
               SELECT items_found
                 FROM crawl_runs
                WHERE source_id = %s AND status = 'ok' AND items_found > 0
+                 AND is_full_sweep
                ORDER BY started_at DESC
                LIMIT %s
           ) recent
