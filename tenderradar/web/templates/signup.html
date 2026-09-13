@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Get matched tenders — TenderRadar{% endblock %}
+{% block description %}Tell us what you build or supply and get only the Bangladesh tenders you can actually win, within 30 minutes of publication.{% endblock %}
+
+{% block content %}
+<div style="max-width:640px;margin:0 auto">
+  <h1 class="page" style="margin-bottom:4px">Get only the tenders you can win</h1>
+  <p style="color:var(--muted);margin:0 0 20px">
+    We check e-GP every 30 minutes and email you a short daily list matched to
+    your business. Free while we are in beta.
+  </p>
+
+  <form method="post" action="/signup" class="card" style="padding:20px">
+    <label style="display:block;font-weight:600;margin-bottom:5px">Mobile number</label>
+    <input name="phone" value="{{ values.phone or '' }}" placeholder="01712345678"
+           style="width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px">
+    {% if errors.phone %}<p style="color:var(--urgent);font-size:13px;margin:5px 0 0">{{ errors.phone }}</p>{% endif %}
+
+    <label style="display:block;font-weight:600;margin:16px 0 5px">Email</label>
+    <input name="email" type="email" value="{{ values.email or '' }}" placeholder="you@company.com"
+           style="width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px">
+    <p style="color:var(--muted);font-size:12.5px;margin:5px 0 0">Your daily digest goes here.</p>
+    {% if errors.email %}<p style="color:var(--urgent);font-size:13px;margin:5px 0 0">{{ errors.email }}</p>{% endif %}
+
+    <label style="display:block;font-weight:600;margin:16px 0 5px">Company name</label>
+    <input name="company_name" value="{{ values.company_name or '' }}"
+           style="width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px">
+
+    <label style="display:block;font-weight:600;margin:16px 0 5px">
+      What does your business actually do?
+    </label>
+    <textarea name="business_description" rows="5"
+      placeholder="e.g. We are an electrical contractor in Sylhet. We do electrical installation, wiring, substation and transformer work for government offices and hospitals."
+      style="width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;font-family:inherit">{{ values.business_description or '' }}</textarea>
+    <p style="color:var(--muted);font-size:12.5px;margin:5px 0 0">
+      <strong>Write a sentence or two, not keywords.</strong> This is what we match
+      on, and a few words matches badly. বাংলায় লিখতে পারেন।
+    </p>
+    {% if errors.business_description %}<p style="color:var(--urgent);font-size:13px;margin:5px 0 0">{{ errors.business_description }}</p>{% endif %}
+
+    <label style="display:block;font-weight:600;margin:16px 0 5px">Tender types</label>
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+      {% for n in ['goods','works','services'] %}
+      <label style="font-size:14px;text-transform:capitalize">
+        <input type="checkbox" name="natures" value="{{ n }}"
+               {% if n in (values.natures or []) %}checked{% endif %}> {{ n }}
+      </label>
+      {% endfor %}
+    </div>
+    <p style="color:var(--muted);font-size:12.5px;margin:5px 0 0">Leave all unticked for everything.</p>
+
+    <label style="display:block;font-weight:600;margin:16px 0 5px">
+      Tender security you can manage (BDT)
+    </label>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <input name="min_security" value="{{ values.min_security or '' }}" placeholder="min, e.g. 20000"
+             style="flex:1;min-width:130px;padding:11px;border:1px solid var(--line);border-radius:8px">
+      <input name="max_security" value="{{ values.max_security or '' }}" placeholder="max, e.g. 500000"
+             style="flex:1;min-width:130px;padding:11px;border:1px solid var(--line);border-radius:8px">
+    </div>
+    <p style="color:var(--muted);font-size:12.5px;margin:5px 0 0">
+      e-GP does not publish tender value, so we filter on the security amount
+      instead. Leave blank if unsure.
+    </p>
+    {% if errors.max_security %}<p style="color:var(--urgent);font-size:13px;margin:5px 0 0">{{ errors.max_security }}</p>{% endif %}
+
+    <button type="submit" style="margin-top:20px;width:100%;background:var(--brand);
+            color:#fff;border:0;padding:13px;border-radius:8px;font-size:16px;cursor:pointer">
+      Start getting matched tenders
+    </button>
+    <p style="color:var(--muted);font-size:12.5px;margin:12px 0 0;text-align:center">
+      No password. We email you a link to confirm. Unsubscribe any time.
+    </p>
+  </form>
+  <p style="text-align:center;margin:16px 0 0;font-size:14px">
+    Already signed up? <a href="/signin">Sign in</a>
+  </p>
+</div>
+{% endblock %}

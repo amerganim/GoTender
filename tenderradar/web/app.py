@@ -124,6 +124,11 @@ TEMPLATES.env.filters["countdown"] = countdown
 TEMPLATES.env.filters["urgency"] = urgency
 TEMPLATES.env.filters["qs"] = qs
 
+# Imported after TEMPLATES exists: the accounts router renders with it.
+from tenderradar.web.accounts import router as accounts_router  # noqa: E402
+
+app.include_router(accounts_router)
+
 
 # ----------------------------------------------------------------- routes
 

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Your profile — TenderRadar{% endblock %}
+{% block head %}<meta name="robots" content="noindex,nofollow">{% endblock %}
+
+{% block content %}
+<div class="layout" style="grid-template-columns:1fr 340px">
+  <div>
+    {% if saved %}
+    <div class="card" style="padding:12px 16px;margin-bottom:16px;border-color:#8fd3c3;background:#f0faf7">
+      Profile saved. Your next digest uses it.
+    </div>
+    {% endif %}
+
+    <h1 class="page">Your matching profile</h1>
+    <p style="color:var(--muted);margin:-6px 0 16px">
+      This is what we match tenders against. The better it describes your work,
+      the shorter and more useful your daily email.
+    </p>
+
+    <form method="post" action="/profile" class="card" style="padding:20px">
+      <label style="display:block;font-weight:600;margin-bottom:5px">
+        What does your business actually do?
+      </label>
+      <textarea name="business_description" rows="5"
+        style="width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;font-family:inherit">{{ profile.business_description or '' }}</textarea>
+      <p style="color:var(--muted);font-size:12.5px;margin:5px 0 0">
+        A sentence or two beats keywords. বাংলায় লিখতে পারেন।
+      </p>
+      {% if errors.business_description %}
+      <p style="color:var(--urgent);font-size:13px;margin:5px 0 0">{{ errors.business_description }}</p>
+      {% endif %}
+
+      <label style="display:block;font-weight:600;margin:18px 0 5px">Tender types</label>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        {% for n in ['goods','works','services'] %}
+        <label style="font-size:14px;text-transform:capitalize">
+          <input type="checkbox" name="natures" value="{{ n }}"
+            {% if n in (profile.procurement_natures or []) %}checked{% endif %}> {{ n }}
+        </label>
+        {% endfor %}
+      </div>
+
+      <label style="display:block;font-weight:600;margin:18px 0 5px">Districts</label>
+      <div style="max-height:150px;overflow:auto;border:1px solid var(--line);
+                  border-radius:8px;padding:10px;display:flex;gap:12px;flex-wrap:wrap">
+        {% for d in facets.districts %}
+        <label style="font-size:13.5px">
+          <input type="checkbox" name="districts" value="{{ d.value }}"
+            {% if d.value in (profile.district_names or []) %}checked{% endif %}> {{ d.value }}
+        </label>
+        {% else %}
+        <span style="color:var(--muted);font-size:13px">
+          Districts appear as we fetch tender detail pages.
+        </span>
+        {% endfor %}
+      </div>
+      <p style="color:var(--muted);font-size:12.5px;margin:5px 0 0">
+        None ticked means everywhere. Tenders whose district we have not read
+        yet are always included, so you never miss a brand new one.
+      </p>
+
+      <label style="display:block;font-weight:600;margin:18px 0 5px">
+        Tender security you can manage (BDT)
+      </label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <input name="min_security" value="{{ profile.min_security or '' }}" placeholder="min"
+               style="flex:1;min-width:120px;padding:11px;border:1px solid var(--line);border-radius:8px">
+        <input name="max_security" value="{{ profile.max_security or '' }}" placeholder="max"
+               style="flex:1;min-width:120px;padding:11px;border:1px solid var(--line);border-radius:8px">
+      </div>
+
+      <button type="submit" style="margin-top:20px;background:var(--brand);color:#fff;
+              border:0;padding:12px 26px;border-radius:8px;font-size:15px;cursor:pointer">
+        Save profile
+      </button>
+    </form>
+  </div>
+
+  <aside>
+    <div class="card" style="margin-bottom:18px">
+      <div class="bar"><strong>Account</strong></div>
+      <table class="kv">
+        <tr><th>Phone</th><td>{{ user.phone }}</td></tr>
+        <tr><th>Email</th><td>{{ user.email }}</td></tr>
+        <tr><th>Company</th><td>{{ user.company_name or '—' }}</td></tr>
+        <tr><th>Plan</th><td>{{ user.plan }}</td></tr>
+      </table>
+      <div style="padding:12px 16px"><a href="/signout" style="font-size:13.5px">Sign out</a></div>
+    </div>
+
+    <div class="card">
+      <div class="bar"><strong>Your current matches</strong>
+        <span class="count">{{ matches|length }}</span></div>
+      {% for m in matches[:8] %}
+      <div style="padding:11px 15px;border-bottom:1px solid var(--line)">
+        <a href="/tenders/{{ m.id }}" style="font-size:13.5px;font-weight:600">
+          {{ (m.title or 'Untitled')[:70] }}</a>
+        <div style="color:var(--muted);font-size:12px;margin-top:3px">
+          {{ m.procurement_nature }}{% if m.district_name %} · {{ m.district_name }}{% endif %}
+          · {{ m.closing_at|countdown }}
+          <span style="color:#8a929e">· {{ m.reasons.matched_by }}</span>
+        </div>
+      </div>
+      {% else %}
+      <div class="empty" style="padding:26px 16px;font-size:13.5px">
+        No matches yet. They appear after the next matching run.
+      </div>
+      {% endfor %}
+    </div>
+  </aside>
+</div>
+{% endblock %}
