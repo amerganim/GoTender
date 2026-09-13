@@ -1,0 +1,539 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        
+        
+
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <title>View IFT /PQ / REOI / RFP / PPS Notice Details</title>
+        <link href="/resources/css/defaultDashboard.css" rel="stylesheet" type="text/css" />
+        <link href="/resources/css/theme_1.css" rel="stylesheet" type="text/css" />
+        <link href="/resources/css/home.css" rel="stylesheet" type="text/css" />
+        <script type="text/javascript" src="../../resources/js/ddlevelsmenu.js"></script>
+        <script src="../../resources/js/form/CommonValidation.js"type="text/javascript"></script>
+
+        <!--jalert -->
+        
+        <script src="/resources/js/jQuery/jquery-1.4.3.min.js" type="text/javascript"></script>
+        <link href="/resources/js/jQuery/jquery.alerts.css" rel="stylesheet" type="text/css" />
+        <script src="/resources/js/jQuery/jquery.alerts.js" type="text/javascript"></script>
+        
+        <script type="text/javascript" src="/resources/js/jQuery/print/jquery.txt"></script>
+
+        <script  type="text/javascript">
+            $(function() {
+                $('#taComments').blur(function() {
+                    if($('#taComments').val() == ''){
+                        $('#valComments').html('Please enter Comments');
+                    }else if($('#taComments').val().length > 2000){
+                        $('#valComments').html('Maximum 2000 characters are allowed');
+                    }else{
+                        $('#valComments').html('');
+                    }
+                });
+                $('#Cancel').click(function() {
+                    if($('#taComments').val() == ''){
+                        $('#valComments').html('Please enter Comments');
+                    }else if($('#taComments').val().length > 2000){
+                        $('#valComments').html('Maximum 2000 characters are allowed');
+                    }else{
+                        alert("Please release the tender security money if any tenderer is already paid. \nYou can find the tenderer list on below TAB after approval of Cancellation Process through Workflow.\n\n ''Tender>>My Tender>>Cancelled>>Dashboard>>Payment>>Tender/Proposal Security.''");
+                        $.post("/WatchListServlet", {tenderId : '1330849',Comments: $('#taComments').val(),funName: 'Cancel'},  function(j){
+                            if(j.toString() == 'cancel'){
+                                var myform=document.getElementById("frm_notice");
+                                myform.action = '/officer/Notice.jsp?tenderid=1330849&TenderCancel=true';
+                                myform.submit();
+                            }else if(j.toString() == '401'){
+                                var myform=document.getElementById("frm_notice");
+                                myform.action = '/UnAuthorizedAccess.jsp';
+                                myform.submit();
+                            }else if(j.toString() == 'not success'){
+                                var myform=document.getElementById("frm_notice");
+                                myform.action = '/resources/common/ViewTender.jsp?id=1330849&TenderCancel=false';
+                                myform.submit();
+                            }
+                        });
+                    }
+
+                });
+
+                $('#watchList').click(function() {
+                    $.post("/WatchListServlet", {type: "Tender",tenderId: 1330849,userId: null,funName: 'Add'},  function(j){
+                        if(j.toString() != "0")
+                        {
+                            jAlert("Added to your WatchList","Success");
+                            $("#watchId").val(j.toString());
+                            $("#addCell").hide();
+                            $("#removeCell").show();
+
+                        }
+                        else
+                        {
+                            jAlert("Can not be added to WatchList","Failure");
+
+                        }
+
+                    });
+                });
+            });
+        </script>
+        <script  type="text/javascript">
+            $(function() {
+                $('#watchListRem').click(function() {
+                    $.post("/WatchListServlet", {type: "Tender",watchId: $("#watchId").val(),funName: 'Remove'},  function(j){
+                        if(j.toString() == "true")
+                        {
+                            jAlert("Removed from your WatchList","Success");
+                            $("#removeCell").hide();
+                            $("#addCell").show();
+
+                        }
+                        else
+                        {
+                            jAlert("Can not be removed from WatchList","Failure");
+                        }
+                    });
+                });
+            });
+        </script>
+    </head>
+    
+    <script type="text/javascript">
+        function printPage()
+        {
+            $("#viewForm").submit();
+        }
+
+    </script>
+    
+    <body>
+        <div class="mainDiv">
+            <div class="fixDiv">
+                
+                
+                <!--Dashboard Header End-->
+                <!--Dashboard Content Part Start-->
+                <div class="contentArea_1">
+                 <div id="print_area">
+                <div class="pageHead_1">&nbsp;
+                    <br />
+                    <span class="t-align-left" >View IFT /PQ / REOI / RFP / PPS Notice Details</span>
+                    
+                     <span class="t-align-right ff mandatory" style="float:right;"  >
+                         
+                     </span>
+                </div>
+                
+                <form method="POST" id="frmviewForm" action="/PDFServlet">
+                    <table border="0" cellspacing="10" cellpadding="0" class="formStyle_1 " width="100%">
+                        <tr>
+                            <td width="25%" class="ff">Ministry :
+                                <input type="hidden" name="reportName" value="Tender_Detail"/>
+                                <input type="hidden" name="reportPage" value="TenderDtlNoticeRpt.jsp?null"/></td>
+                            <td width="25%">Ministry of Local Government, Rural Development and Co-operatives</td>
+                            <td width="25%" class="ff">Division :</td>
+                            <td width="25%">Local Government Division</td>
+                        </tr>
+                            <tr>
+                            <td class="ff">Organization :</td>
+                            <td>Department of Public Health Engineering (DPHE)</td>
+                            
+                            <td class="ff">Procuring Entity Name :</td>
+                            <td>Office of the Executive Engineer DPHE, Sylhet</td>
+                        </tr>
+                        <tr>
+                            <td class="ff">Procuring Entity Code :</td>
+                            <td></td>
+                            <td class="ff">Procuring Entity District :</td>
+                            <td>Sylhet</td>
+                        </tr>
+                                                
+                        <tr>
+                            <td class="ff">Procurement Nature :</td>
+                            
+                                <td>Works</td>
+                                                        
+                            <td class="ff">Procurement Type :</td>
+                            <td>NCT</td>
+                        </tr>
+                        <tr>
+                            <td class="ff">Event Type :</td>
+                            <td><label id="lblEventType">TENDER</label></td>
+                             <td class="ff">Invitation for :</td>
+                            <td>Tender - Single Lot</td> 
+                        </tr>
+                        <tr>
+                            <td class="ff">Invitation Reference No. :</td>
+                            <td>46.03.9100.061.07.141.17-421 (4)  Date: 13/09/2026</td>
+                        
+                                <td class="ff">Tender/Proposal Status : </td>
+                                <td><label style="color: red;font-weight: bold;">Live</label></td>
+
+                        </tr>
+
+
+                        <!--Edited By Sanat -->
+                          <tr>
+                              <td class="ff">App ID :</td>
+                              <td>230146</td>
+                              <td class="ff">Tender/Proposal ID :</td>
+                              <td>1330849</td>
+                          </tr>
+                        <!--End of Edition By Sanat  -->
+
+
+                                  
+                    </table>
+                    <div class="tableHead_22 ">Key Information and Funding Information :</div>
+                    <table border="0" cellspacing="10" cellpadding="0" class="formStyle_1 " width="100%">
+                        <tr>
+                            <td width="25%" class="ff">Procurement Method : </td>
+                            <td width="25%">
+                                
+                                Open Tendering Method (OTM)
+                                
+                                
+                                
+                                
+                                
+                                
+                                
+                                
+                                
+                                
+                                
+                                
+                                
+                                
+                            </td>
+                            <td width="25%" class="ff">Budget Type :</td>
+                            <td width="25%">Development</td>
+                        </tr>
+                        <tr>
+                            <td width="25%" class="ff">Source of Funds :</td>
+                            <td width="25%">Government</td>
+                            
+                        </tr>
+                        
+                    </table>
+
+                    <div class="tableHead_22 ">Particular Information :</div>
+                    <table border="0" cellspacing="10" cellpadding="0" class="formStyle_1 " width="100%">
+                        <tr>
+                            <td width="25%" class="ff">Project Code : </td>
+                            <td width="25%">224303400</td>
+                            <td width="25%" class="ff">Project Name : </td>
+                            <td width="25%">Project for Safe Water Supply Throughout the Country.</td>
+                        </tr>
+                        <tr>
+                            <td  width="25%" class="ff">Tender/Proposal Package No. and Description :</td>
+                            <td colspan="3" width="75%">PSWSC-6145<br/>
+                            Installation of 168 Nos. of Nos Deep Tube well (100x38mm) with submersible pump at Golapganj & Beanibazar Upazila in Sylhet District Under Project for Safe Water Supply Through Out The Country (PSWSC)</td>
+                        </tr>
+                        <tr>
+                            <td class="ff">Category : </td>
+                            <td colspan="3">Collected and purified water; Construction work;Natural water;Drinking water;Non-drinking water;Site preparation work;Building demolition and wrecking work and earthmoving work;Test drilling and boring work;Works for complete or part construction and civil engineering work;Building construction work;Engineering works and construction works;Construction work for pipelines, communication and power lines, for highways, roads, airfields and railways; flatwork;Construction work for water projects;Construction works for plants, mining and manufacturing and for buildings relating to the oil and gas industry;Roof works and other special trade construction works;Building installation work;Electrical installation work;Insulation work;Plumbing and sanitary works;Fencing, railing and safety equipment installation work;Mechanical installations;Building completion work;Plastering work;Joinery and carpentry installation work;Floor and wall covering work;Painting and glazing work;Other building completion work;Hire of construction and civil engineering machinery and equipment with operator;Hire of cranes with operator;Hire of earthmoving equipment with operator</td>
+                        </tr>
+                        <tr>
+                            
+                            <td class="ff">Scheduled Tender/Proposal Publication<br/>Date and Time :</td>
+                            <td class="formStyle_1">13-Sep-2026 13:00</td>
+                            
+                            <td class="ff">Tender/Proposal Document last selling /<br/>downloading Date and Time : </td>
+                            <td class="formStyle_1">27-Sep-2026 13:00</td>
+                            
+                        </tr>
+
+                        
+                        <tr>
+                            <td class="ff">Pre - Tender/Proposal meeting Start<br/>Date and Time :</td>
+                            <td class="formStyle_1">13-Sep-2026 14:00</td>
+                            <td class="ff">Pre - Tender/Proposal meeting End<br/>Date and Time :</td>
+                            <td class="formStyle_1">22-Sep-2026 10:00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ff">Tender/Proposal  <!--Proposal -->  Closing<br/>Date and Time :</td>
+                            <td class="formStyle_1">27-Sep-2026 15:00</td>
+                            <td class="ff">Tender/Proposal <!--Proposal -->  Opening<br/>Date and Time :</td>
+                            <td class="formStyle_1">27-Sep-2026 15:00</td>
+                        </tr>
+                         
+                        <tr>
+                            <td class="ff">Last Date and Time for Tender/Proposal Security<br />Submission :</td>
+                        <!--                        <tr>
+                            <td class="ff"> <p>Name and Address<br />
+                                    of the Office(s) for tender security submission :</p>      </td>
+                            <td></td>
+                        </tr>-->
+                            <td>27-Sep-2026 14:00</td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                        </tr>
+                        
+                    </table>
+
+                    <div class="tableHead_22 ">Information for Tenderer/Consultant :</div>
+
+                    <table border="0" cellspacing="10" cellpadding="0" class="formStyle_1 " width="100%">
+                        
+                        <tr>
+                            <td width="25%" class="ff">Eligibility of Tenderer  :</td>
+                            <td width="75%"><p>As per Tender Data Sheet (TDS)<br />
+N:B: The tenderer must follow the following instruction before submitting the tender.</p>
+
+<p>Submitted tender will be treated as &#39;Non-Responsive&#39; due to the failure of submission of following eligibility documents related to the Tenderer-</p>
+
+<p><br />
+1) Duly attested copy of updated Trade License ,TIN and VAT certificate.<br />
+2) Copy of required specific experience.<br />
+3) Copy of turnover document in the form of payment certificate.<br />
+4) The certificates to be submitted by the tenderer in proof of specific experience or Average Annual Construction Turnover (AACT) must have the information such as particulars of PE including email address and contact no,business share in case of JV,time extension,liquidity damage,contract and final bill amount etc.Failing in doing so will turn the submitted tender as &#39;Non-Responsive&#39;.<br />
+5) Scanned copy of original liquid asset document (certificate or statement from bank issued not earlier than the date of publication of IFT in e-GP website) in the format designated in PPR.<br />
+6)The credit facilities should be sanctioned in favor of contractor and issued not earlier than the date of publication of IFT in e-GP website by any scheduled bank of Bangladesh in accordance with ITT clause 14.1(b) without alteration and must submit in the format of credit line (Form PW 3-7).<br />
+7) Tenderer should submit the information related to&#39;Tender Capacity&#39; as per standard format of BPPA.<br />
+8) It can be noted that submission of any fake/false document will result in the submitted tender as &#39;Non-Responsive&#39;and steps will be taken against the concerned tenderer according to PPA,2006 and PPR 2025(last amendment).</p>
+</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ff" >Brief Description of Works :</td>
+                            <td><p>PSWSC-6145<br />
+Installation of 168 Nos. of Nos Deep Tube well (100x38mm) with submersible pump at Golapganj &amp; Beanibazar Upazila in Sylhet District Under Project for Safe Water Supply Through Out The Country (PSWSC)</p>
+</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ff"> Evaluation Type :</td>
+                            <td>Lot wise</td>
+                        </tr>
+                        
+
+                        <tr>
+                            
+                            <td class="ff"> Document Available :</td>
+                            <td>Package wise</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ff">Document Fees :</td>
+                            <td>Package wise</td>
+                        </tr>
+                        
+                        <!--<tr>
+                                <td class="ff">Pre-Qualification Document Price (In BDT)Tender Document Price (In BDT)
+                                :</td>
+                            <td><-%=commonTenderDetails.getPkgDocFees()%></td>
+                        </tr>
+                            
+                                <tr>
+                                    <td class="ff">Pre-Qualification Document Price (In BDT)Tender Document Price (In BDT)
+                                    :</td>
+                                    <td><-%=commonTenderDetails.getPkgDocFees()%></td>
+                                </tr>-->
+						
+                        <tr>
+                            <td class="ff">Tender/Proposal Document Price (In BDT)
+                            :</td>
+                            <td>4000</td>
+                        </tr>
+						
+                            
+                        <!--  Start ICT Tender by Dohatec-->
+						
+                        <!--  End ICT Tender by Dohatec-->
+                        <tr>
+                            <td class="ff">Mode of Payment :</td>
+                            <td><label>Payment through Bank</label>
+                                </td>
+                        </tr>
+                            
+                             
+                            <tr>
+                                <td class="ff">Tender/Proposal Security Valid Up to :</td>
+                                <td>22-Feb-2027</td>
+                            </tr>
+                            
+                            <tr>
+                                <td class="ff">Tender/Proposal Valid Up to :</td>
+                                <td>25-Jan-2027</td>
+                            </tr>
+                                
+
+                    </table>
+                    
+
+                    <table width="100%" cellspacing="0" class="tableList_1 ">
+                        <tr>
+                            <th width="6%" class="t-align-left">Lot No.</th>
+                            
+                            <th width="54%" class="t-align-left">Identification of Lot</th>
+                            
+                            <th width="10%" class="t-align-left">Location</th>
+                            
+                                    <!-- ICT Start Nazmul-->
+                                    
+                                        <th width="10%" class="t-align-center">Tender/Proposal security<br />(Amount in BDT)</th>
+                                    
+                                   <!-- ICT end Nazmul-->
+                                
+                            <th width="10%" class="t-align-center">Tentative Start Date</th>
+                            <th width="10%" class="t-align-left">Tentative Completion Date</th>
+                        </tr>
+                        
+                        <tr>
+                            <td class="t-align-center">1</td>
+                            <td class="t-align-left">Installation of 168 Nos. of Nos Deep Tube well (100x38mm) with submersible pump at Golapganj & Beanibazar Upazila in Sylhet District Under Project for Safe Water Supply Through Out The Country (PSWSC)</td>
+                            <td class="t-align-center">Golapganj and Beanibazar Upazila</td>
+                            
+                            <!--<td class="t-align-center">800000</td>-->
+                            <!-- ICT Start Dohatec-->
+                                
+                                        <td class="t-align-center">800000</td>
+                                
+                            <!-- ICT End Dohatec-->
+                            
+                            <td class="t-align-center">01-Nov-2026</td>
+                            <td class="t-align-center">01-Nov-2027</td>
+                        </tr>
+                        
+                    </table>
+                    
+                    <div class="tableHead_22 t_space">Procuring Entity Details:</div>
+                    <table border="0" cellspacing="10" cellpadding="0" class="formStyle_1 " width="100%">
+                        <tr>
+                            <td class="ff" width="20%">Name of Official Inviting  Tender/Proposal :</td>
+                            <td width="30%" >Md  Abul kashem</td>
+                            <td nowrap class="ff" width="20%" nowrap> Designation of Official Inviting  Tender/Proposal :</td>
+                            <td width="30%">Executive Engineer</td>
+                        </tr>
+
+                        <tr>
+                            <td class="ff">Address of Official Inviting  Tender/Proposal : </td>
+                            <td>
+						<table width="100%" border="0"><tr><td width="30%"><b>Address</b></td><td width="70%">: Office of the Executive Engineer DPHE, Sylhet</td></tr><tr><td><b>City</b></td><td>: Sylhet</td></tr><tr><td><b>Thana</b></td><td>: Sylhet City Corporation</td></tr><tr><td><b>District</b></td><td>: Sylhet - 3100</td></tr><tr><td><b>Country</b></td><td>: Bangladesh</td></tr></table></td>
+                            <td class="ff" nowrap>Contact details of Official Inviting  Tender/Proposal :</td>
+                            <td><table width="100%" border="0">
+						<tr><td width="30%"><b>Phone No</b></td><td width="70%">: 08-21716863</td></tr>
+						<tr><td><b>Fax No</b></td><td>: </td></tr></table>
+                            </td>
+                        </tr>
+                            
+                        <tr>
+                            <td colspan="4" class="ff mandatory">The procuring entity reserves the right to accept or reject all Tenders/Proposals / Pre-Qualifications / EOIs</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="mandatory ff">Note: Bank will update the payment transactions only at the end of the day, so the tenderers should make sure the securities and other payments are made at least one day before the submission date. </td>
+                        </tr>
+
+                        <tr id="tdPrintDocument">
+                            <td class="t-align-left">
+                                <a class="action-button-document" href="/LotPckDocs.jsp?tenderId=1330849" >Documents</a>
+                                    
+
+                        <!--After Document link -->
+
+                </td>
+                                 <td class="t-align-right" colspan="3">
+                                     
+                                 </td>
+            </tr>
+
+                    </table>
+                </form>
+                
+                <div>
+                    
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+   "http://www.w3.org/TR/html4/loose.dtd">
+
+<div class="tableHead_1 t_space" id="divHead" style="background-color:#f2dbdb;color: #943634; line-height:20px;border:1px solid #943634;font-family: arial, verdana; font-size: 13px;display:none;">Amendment / Corrigendum Detail</div>
+
+
+
+                </div>
+                
+                <div>&nbsp;</div>
+                </div>
+                <!--Dashboard Content Part End-->
+                <!--Dashboard Footer Start-->
+                </div>
+                
+                <div class="t-align-center">
+
+  
+                <a class="action-button-savepdf"
+                href="javascript:void(0)" onclick="location.href='/GeneratePdf?reqURL=http://www.eprocure.gov.bd/resources/common/ViewTender.jsp&reqQuery=null&folderName=TenderNotice&id=1330849'">Save As PDF </a>
+                
+                </div>
+                <br/><br/>
+                
+
+                <div class="t-align-center">
+                <label class="formBtn_1">
+                     <input name="print" id="print" type="button" value="Print" class="button" />
+                </label></div>
+                
+                
+                <!--jsp:include page="Bottom.jsp"/-->
+                
+                <!--Dashboard Footer End-->
+                
+            </div>
+        </div>
+                <script type="text/javascript">
+                    $(document).ready(function() {
+
+                        $("#print").click(function() {
+                            printElem({ leaveOpen: true, printMode: 'popup' });
+                        });
+
+                    });
+                    function printElem(options){
+                        $('#printRem').hide();
+                        $('#tdPrintDocument').hide();
+                        $('#tdActionDownload').hide();
+                        $('#thActionDownload').hide();
+                        $('#print_area').printElement(options);
+                        $('#printRem').show();
+                        $('#tdPrintDocument').show();
+                        $('#tdActionDownload').show();
+                        $('#thActionDownload').show();
+                    }
+
+                </script>
+        
+    </body>
+</html>
