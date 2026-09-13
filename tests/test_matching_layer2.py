@@ -11,10 +11,12 @@ from __future__ import annotations
 
 from tenderradar.matching.embeddings import profile_text, tender_text
 from tenderradar.matching.layer2 import (
-    MIN_VECTOR_SIMILARITY,
+    ABSOLUTE_FLOOR,
+    RELATIVE_FLOOR_FRACTION,
     build_tsquery,
     fuse,
     keywords_from_profile,
+    similarity_floor,
 )
 
 
@@ -87,7 +89,94 @@ def test_semantic_only_match_survives_when_similarity_is_strong():
 
 def test_weak_semantic_match_with_no_keyword_hit_is_dropped():
     """Without a floor, RRF just ranks the least-bad of a bad set."""
-    assert fuse([(7, MIN_VECTOR_SIMILARITY - 0.01)], []) == []
+    # Best is 0.80, so the floor sits at 0.48; 0.20 is far below it.
+    scored = fuse([(1, 0.80), (7, 0.20)], [])
+    assert [s.tender_id for s in scored] == [1]
+
+
+# ------------------------------------------ the floor must not favour English
+
+
+# Measured on this corpus: identical match quality, different score ranges,
+# purely because one profile was written in Bangla and the other in English.
+BANGLA_LIKE = [0.58, 0.53, 0.50, 0.46, 0.43, 0.39]
+ENGLISH_LIKE = [0.80, 0.76, 0.73, 0.66, 0.61, 0.57]
+
+
+def test_floor_scales_with_the_users_own_best_match():
+    assert similarity_floor(ENGLISH_LIKE) > similarity_floor(BANGLA_LIKE)
+    assert similarity_floor(ENGLISH_LIKE) == 0.80 * RELATIVE_FLOOR_FRACTION
+
+
+def kept_under_relative_floor(sims, fraction=RELATIVE_FLOOR_FRACTION):
+    floor = similarity_floor(sims, fraction=fraction)
+    return sum(1 for s in sims if s >= floor)
+
+
+def test_the_relative_floor_treats_both_languages_alike():
+    """The offset between the two languages no longer decides who gets cut.
+
+    It cannot make two differently-SHAPED distributions identical -- only the
+    systematic offset is removed -- so the standard is "within one match",
+    not "exactly equal".
+    """
+    assert abs(
+        kept_under_relative_floor(BANGLA_LIKE)
+        - kept_under_relative_floor(ENGLISH_LIKE)
+    ) <= 1
+
+
+def test_an_absolute_cutoff_was_badly_biased():
+    """Documents the bug this replaced, so nobody reintroduces it.
+
+    At a 0.55 cutoff the Bangla profile keeps one match and the English
+    profile keeps all six, despite both sets being equally correct.
+    """
+    cutoff = 0.55
+    bangla = sum(1 for s in BANGLA_LIKE if s >= cutoff)
+    english = sum(1 for s in ENGLISH_LIKE if s >= cutoff)
+
+    assert (bangla, english) == (1, 6)
+    # Five matches of difference, against at most one under the relative floor.
+    assert abs(bangla - english) > abs(
+        kept_under_relative_floor(BANGLA_LIKE)
+        - kept_under_relative_floor(ENGLISH_LIKE)
+    )
+
+
+def test_tightening_the_fraction_stays_language_neutral():
+    """Tuning is the dangerous moment; it must not reintroduce the bias.
+
+    An absolute cutoff gets MORE biased as it rises. The relative floor stays
+    within one match of parity at every setting.
+    """
+    for fraction in (0.5, 0.7, 0.9, 0.95):
+        assert abs(
+            kept_under_relative_floor(BANGLA_LIKE, fraction)
+            - kept_under_relative_floor(ENGLISH_LIKE, fraction)
+        ) <= 1
+
+
+def test_absolute_backstop_applies_when_everything_is_weak():
+    """A profile matching nothing gets nothing, not its least-bad noise."""
+    assert similarity_floor([0.10, 0.08]) == ABSOLUTE_FLOOR
+    assert fuse([(1, 0.10), (2, 0.08)], []) == []
+
+
+def test_backstop_is_below_both_observed_ranges():
+    """It must never be the binding constraint for a real profile."""
+    assert ABSOLUTE_FLOOR < min(BANGLA_LIKE)
+    assert ABSOLUTE_FLOOR < min(ENGLISH_LIKE)
+
+
+def test_no_vector_hits_falls_back_to_the_backstop():
+    assert similarity_floor([]) == ABSOLUTE_FLOOR
+
+
+def test_the_floor_is_recorded_on_every_match():
+    """So a later precision review can tell a weak match from a strict floor."""
+    scored = fuse([(1, 0.80)], [])
+    assert scored[0].reasons["floor"] == round(0.80 * RELATIVE_FLOOR_FRACTION, 4)
 
 
 def test_weak_semantic_match_is_kept_when_keywords_agree():

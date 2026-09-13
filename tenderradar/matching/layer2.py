@@ -35,9 +35,26 @@ log = logging.getLogger(__name__)
 # outright, small enough that deep results stop mattering.
 RRF_K = 60
 
-# A candidate must clear one of these to be worth a user's attention at all.
-# Without a floor, RRF happily ranks the least-bad of a bad set.
-MIN_VECTOR_SIMILARITY = 0.25
+# Quality floor for a semantic-only match. Without one, RRF happily ranks the
+# least-bad of an entirely bad set.
+#
+# The floor is RELATIVE to the user's own best match, not an absolute constant.
+# Cosine similarity is systematically lower for a cross-language match than a
+# same-language one at equal quality: measured on this corpus, a Bangla profile
+# scored 0.39-0.58 where an English profile scored 0.57-0.80 for results that
+# were equally correct. A single absolute cutoff therefore silently discards
+# more of a Bangla user's matches than an English user's -- and the instinct on
+# seeing "weak" scores is to raise that cutoff, which makes the bias worse.
+#
+# Scoring relative to the user's own distribution removes the offset entirely,
+# and makes this number safe to tune.
+RELATIVE_FLOOR_FRACTION = 0.6
+
+# Absolute backstop, deliberately far below the observed range of BOTH
+# languages so it never acts as the binding constraint for either. It exists
+# only to stop a profile that matches nothing from being sent its least-bad
+# noise.
+ABSOLUTE_FLOOR = 0.15
 
 _WORD_RE = re.compile(r"[\wঀ-৿]+", re.UNICODE)
 
@@ -141,11 +158,28 @@ async def fts_candidates(
     return [(row["tender_id"], float(row["rank"])) for row in await cur.fetchall()]
 
 
+def similarity_floor(
+    similarities: list[float],
+    *,
+    fraction: float = RELATIVE_FLOOR_FRACTION,
+    absolute: float = ABSOLUTE_FLOOR,
+) -> float:
+    """Quality floor scaled to this user's own best match.
+
+    Returns the absolute backstop when there is nothing to scale against, so a
+    user with no vector hits is never handed noise.
+    """
+    if not similarities:
+        return absolute
+    best = max(similarities)
+    return max(absolute, best * fraction)
+
+
 def fuse(
     vector_hits: list[tuple[int, float]],
     fts_hits: list[tuple[int, float]],
     *,
-    min_similarity: float = MIN_VECTOR_SIMILARITY,
+    min_similarity: float | None = None,
 ) -> list[ScoredTender]:
     """Reciprocal Rank Fusion over the two result lists.
 
@@ -153,6 +187,13 @@ def fuse(
     is the behaviour we want: agreement between an exact-term match and a
     semantic match is the strongest signal available without user feedback.
     """
+    # Scale the floor to this user's own distribution unless one was forced.
+    floor = (
+        min_similarity
+        if min_similarity is not None
+        else similarity_floor([sim for _, sim in vector_hits])
+    )
+
     vector_rank = {tid: i for i, (tid, _) in enumerate(vector_hits)}
     fts_rank = {tid: i for i, (tid, _) in enumerate(fts_hits)}
     vector_score = dict(vector_hits)
@@ -166,7 +207,7 @@ def fuse(
         # Floor: a weak semantic match with no term match is not worth sending.
         # A term match is allowed through on its own -- that is exactly the
         # electrical case embeddings miss.
-        if not in_fts and (similarity is None or similarity < min_similarity):
+        if not in_fts and (similarity is None or similarity < floor):
             continue
 
         score = 0.0
@@ -193,6 +234,9 @@ def fuse(
                 reasons={
                     "matched_by": matched_by,
                     "similarity": round(similarity, 4) if similarity is not None else None,
+                    # Recorded so a later precision review can tell a weak
+                    # match from a strict floor, per user and per language.
+                    "floor": round(floor, 4),
                 },
             )
         )
