@@ -37,6 +37,11 @@ class ChangeType(StrEnum):
     CORRIGENDUM = "corrigendum"
     CANCELLATION = "cancellation"
     EXTENSION = "extension"
+    # We learned fields we had not fetched yet (typically the first detail
+    # page for a tender first seen in a list sweep). This is OUR ingestion
+    # catching up, not the procuring entity amending anything, and it must
+    # never be shown to users or alerted on as an amendment.
+    ENRICHMENT = "enrichment"
 
 
 # Matches the NUMERIC(18,2) scale used for every money column.
@@ -204,4 +209,8 @@ class TenderRecord(BaseModel):
         if "closing_at" in diff and self.closing_at and previous.closing_at:
             if self.closing_at > previous.closing_at:
                 return ChangeType.EXTENSION
+        # Every changed field went from nothing to something, so nothing was
+        # actually amended -- we simply had not seen these fields before.
+        if diff and all(getattr(previous, name) is None for name in diff):
+            return ChangeType.ENRICHMENT
         return ChangeType.CORRIGENDUM

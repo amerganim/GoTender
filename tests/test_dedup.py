@@ -289,3 +289,55 @@ def test_hash_and_diff_agree_for_every_money_field():
         scaled = base.model_copy(update={field: Decimal("1500.00")})
         assert unscaled.canonical_hash() == scaled.canonical_hash(), field
         assert unscaled.changed_fields(scaled) == {}, field
+
+
+# ------------------------------- enrichment is not an amendment
+
+
+def test_learning_new_fields_is_enrichment_not_a_corrigendum():
+    """A tender first seen in a list sweep gets its detail page later.
+
+    District, security, document price and opening date all arrive at once,
+    every one of them NULL -> value. Labelling that a corrigendum tells a
+    contractor the notice was amended when nothing changed at source, and in
+    Phase 2 would alert every subscriber about an amendment that never
+    happened.
+    """
+    stored = list_record(district=None, tender_security=None)
+    incoming = detail_record()
+    merged = merge_records(stored, incoming)
+
+    assert merged.infer_change_type(stored) is ChangeType.ENRICHMENT
+
+
+def test_changing_a_known_value_is_still_a_corrigendum():
+    stored = detail_record(document_price=Decimal("4000"))
+    merged = merge_records(stored, detail_record(document_price=Decimal("5000")))
+    assert merged.infer_change_type(stored) is ChangeType.CORRIGENDUM
+
+
+def test_a_mix_of_new_and_changed_fields_is_a_corrigendum():
+    """If anything real changed, the whole version is an amendment."""
+    stored = list_record(district=None, document_price=Decimal("4000"))
+    merged = merge_records(
+        stored, detail_record(district="Sylhet", document_price=Decimal("5000"))
+    )
+    assert merged.infer_change_type(stored) is ChangeType.CORRIGENDUM
+
+
+def test_cancellation_outranks_enrichment():
+    stored = list_record(district=None)
+    merged = merge_records(
+        stored, detail_record(status=TenderStatus.CANCELLED)
+    )
+    assert merged.infer_change_type(stored) is ChangeType.CANCELLATION
+
+
+def test_extension_outranks_enrichment():
+    """A later closing date is an extension even alongside first-time fields."""
+    stored = list_record(district=None)
+    merged = merge_records(
+        stored,
+        detail_record(closing_at=datetime(2026, 10, 5, 9, 0, tzinfo=UTC)),
+    )
+    assert merged.infer_change_type(stored) is ChangeType.EXTENSION
