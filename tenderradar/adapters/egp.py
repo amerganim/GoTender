@@ -63,6 +63,10 @@ _STATUS_MAP = {
     "awarded": TenderStatus.AWARDED,
 }
 
+# A package number is one whitespace-free token carrying a digit or a slash.
+# Anything with spaces is prose, i.e. the description.
+_PACKAGE_NO_RE = re.compile(r"^(?=.*[\d/])[\w./()\-]+$")
+
 # Marker proving we got a real result fragment rather than the session page.
 _SESSION_EXPIRED = "Session Expired"
 
@@ -300,15 +304,14 @@ class EgpTenderAdapter(SourceAdapter):
         reference_no = ident[1] if len(ident) > 1 else None
         status_text = ident[2] if len(ident) > 2 else "Live"
 
-        # cell 2: nature, then package no and brief description
+        # cell 2: nature, then optionally a package no, then the description
         brief = _lines(cells[2])
         nature = (
             _NATURE_MAP.get(brief[0].lower(), ProcurementNature.OTHER)
             if brief
             else ProcurementNature.OTHER
         )
-        package_no = brief[1] if len(brief) > 1 else None
-        description = " ".join(brief[2:]) if len(brief) > 2 else None
+        package_no, description = self._split_brief(brief[1:])
 
         # cell 3: ministry / division / agency / procuring entity
         organization = self._organization_from_parts(_lines(cells[3]))
@@ -340,6 +343,26 @@ class EgpTenderAdapter(SourceAdapter):
             detail_url=f"{self.base_url}{self.DETAIL_PAGE}?id={external_ref}",
             raw_document_id=result.raw_document_id,
         )
+
+    @staticmethod
+    def _split_brief(parts: list[str]) -> tuple[str | None, str | None]:
+        """Separate an optional package number from the description.
+
+        Most live rows carry NO package number -- the cell is just the
+        description -- so treating the first line as the package number
+        unconditionally shifts every field by one for the majority of tenders,
+        and then fights with the detail page forever.
+
+        e-GP package numbers are a single whitespace-free token containing a
+        digit or a slash ("PSWSC-6145", "EED/DM/Development/2026-27/PG-04",
+        "Police/26-27/Thana/WD25a"). Descriptions are prose with spaces.
+        """
+        if not parts:
+            return None, None
+        first = parts[0]
+        if len(first) <= 80 and _PACKAGE_NO_RE.match(first):
+            return first, " ".join(parts[1:]) or None
+        return None, " ".join(parts) or None
 
     @staticmethod
     def _organization_from_parts(parts: list[str]) -> OrganizationRef:

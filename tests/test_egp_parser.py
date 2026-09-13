@@ -216,3 +216,52 @@ def test_parse_is_pure(adapter: EgpTenderAdapter):
     first = adapter.parse(_result("egp_list_live.html", PayloadKind.LIST))
     second = adapter.parse(_result("egp_list_live.html", PayloadKind.LIST))
     assert [r.canonical_hash() for r in first] == [r.canonical_hash() for r in second]
+
+
+# ------------------------------------------------ package number detection
+
+
+def test_package_number_split_on_real_shapes():
+    """Most live rows carry no package number; line 1 is then the description.
+
+    Treating line 1 as the package number unconditionally shifted every field
+    by one for ~79% of the live pool.
+    """
+    split = EgpTenderAdapter._split_brief
+
+    # Real package numbers: one token, digits or slashes.
+    assert split(["PSWSC-6145", "Installation of tube wells"]) == (
+        "PSWSC-6145",
+        "Installation of tube wells",
+    )
+    assert split(["EED/DM/Development/2026-27/PG-04", "Supply"]) == (
+        "EED/DM/Development/2026-27/PG-04",
+        "Supply",
+    )
+    assert split(["Police/26-27/Thana/WD25a", "Construction"]) == (
+        "Police/26-27/Thana/WD25a",
+        "Construction",
+    )
+
+    # Prose is a description, never a package number.
+    assert split(["Procurement of Surgical Equipment"]) == (
+        None,
+        "Procurement of Surgical Equipment",
+    )
+    assert split(["Call Center Helpdesk Service for NESCO", "and more"]) == (
+        None,
+        "Call Center Helpdesk Service for NESCO and more",
+    )
+    assert split([]) == (None, None)
+
+
+def test_list_row_without_package_number_keeps_description_in_place(
+    adapter: EgpTenderAdapter,
+):
+    for record in adapter.parse(_result("egp_list_live.html", PayloadKind.LIST)):
+        if record.package_no is not None:
+            # A package number never contains whitespace on this source.
+            assert " " not in record.package_no, record.package_no
+        # The description must never be left empty while a package number
+        # holds the prose that belongs in it.
+        assert record.description, record.external_ref
