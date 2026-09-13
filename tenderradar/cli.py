@@ -76,6 +76,48 @@ async def cmd_schedule(args: argparse.Namespace) -> int:
     return 0
 
 
+async def cmd_embed(args: argparse.Namespace) -> int:
+    """Embed the corpus. Cached per tender, so this is cheap after the first run."""
+    from tenderradar.matching import embeddings
+
+    async with connection() as conn:
+        pending = len(await embeddings.tenders_needing_embedding(conn, limit=100000))
+        print(f"{pending} tenders need embedding")
+        if not pending:
+            await close_pool()
+            return 0
+        total = await embeddings.embed_backlog(conn, limit=args.limit)
+
+    print(f"embedded {total} tenders")
+    await close_pool()
+    return 0
+
+
+async def cmd_match(args: argparse.Namespace) -> int:
+    """Run the matching engine for one user or all users."""
+    from tenderradar.matching import engine
+
+    async with connection() as conn:
+        if args.user_id:
+            reports = [await engine.match_user(conn, args.user_id, limit=args.limit)]
+            await conn.commit()
+        else:
+            reports = await engine.match_all_users(conn, limit=args.limit)
+        stats = await engine.match_precision(conn)
+
+    for report in reports:
+        print(report.summary())
+    if not reports:
+        print("no users yet")
+
+    precision = stats["precision"]
+    shown = "no ratings yet" if precision is None else f"{precision:.0%}"
+    print(f"\nmatch precision: {shown} (target {stats['target']:.0%}, "
+          f"{stats['rated']} rated)")
+    await close_pool()
+    return 0
+
+
 async def cmd_serve(args: argparse.Namespace) -> int:
     """Run the public site.
 
@@ -230,6 +272,15 @@ def main() -> int:
     p = sub.add_parser("schedule", help="crawl on a schedule, forever")
     p.add_argument("--interval", type=int, default=30, help="minutes")
     p.set_defaults(func=cmd_schedule)
+
+    p = sub.add_parser("embed", help="embed tenders for semantic matching")
+    p.add_argument("--limit", type=int, default=100000)
+    p.set_defaults(func=cmd_embed)
+
+    p = sub.add_parser("match", help="run the matching engine")
+    p.add_argument("--user-id", type=int, default=None)
+    p.add_argument("--limit", type=int, default=50, help="matches per user")
+    p.set_defaults(func=cmd_match)
 
     p = sub.add_parser("serve", help="run the public tender directory")
     p.add_argument("--host", default="127.0.0.1")
