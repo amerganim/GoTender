@@ -135,6 +135,27 @@ async def cmd_digest(args: argparse.Namespace) -> int:
     return 0
 
 
+async def cmd_push(args: argparse.Namespace) -> int:
+    """Push matches closing sooner than tomorrow's digest would reach."""
+    from tenderradar.alerts import push
+
+    if not settings.push_enabled:
+        print("VAPID keys are not configured; set them in .env first")
+        await close_pool()
+        return 1
+
+    async with connection() as conn:
+        reports = await push.push_urgent_matches(conn, within_hours=args.hours)
+        await conn.commit()
+
+    for user_id, report in reports:
+        print(f"user {user_id}: {report.summary()}")
+    if not reports:
+        print("nothing closing within the window, or no push subscriptions yet")
+    await close_pool()
+    return 0
+
+
 async def cmd_serve(args: argparse.Namespace) -> int:
     """Run the public site.
 
@@ -302,6 +323,10 @@ def main() -> int:
     p = sub.add_parser("digest", help="send daily digest emails")
     p.add_argument("--dry-run", action="store_true", help="build but do not send")
     p.set_defaults(func=cmd_digest)
+
+    p = sub.add_parser("push", help="send push alerts for tenders closing soon")
+    p.add_argument("--hours", type=int, default=48)
+    p.set_defaults(func=cmd_push)
 
     p = sub.add_parser("serve", help="run the public tender directory")
     p.add_argument("--host", default="127.0.0.1")

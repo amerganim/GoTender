@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — TenderRadar{% endblock %}
+{% block head %}<meta name="robots" content="noindex,nofollow">{% endblock %}
+
+{% macro gate(label, value, target, note) %}
+<div class="card stat" style="border-left:4px solid
+  {% if value is none %}var(--line){% elif value >= target %}#2e9e6b{% else %}var(--urgent){% endif %}">
+  <div class="n" style="font-size:24px">
+    {% if value is none %}<span style="color:var(--muted);font-size:17px">no data</span>
+    {% else %}{{ '%.0f'|format(value * 100) }}%{% endif %}
+  </div>
+  <div class="l">{{ label }}</div>
+  <div style="color:var(--muted);font-size:12px;margin-top:5px">
+    target {{ '%.0f'|format(target * 100) }}% · {{ note }}
+  </div>
+</div>
+{% endmacro %}
+
+{% block content %}
+<h1 class="page">Dashboard</h1>
+<p style="color:var(--muted);margin:-6px 0 18px">
+  Only the numbers §10 says to track. Signups are context, not a score.
+</p>
+
+<h2 class="sec">Gate 2</h2>
+<div class="hero" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+  {{ gate('Week-3 digest open rate', m.open_rate_week3, 0.40,
+          'everyone opens week 1') }}
+  {{ gate('Match precision (of rated)', m.precision_of_rated, 0.30,
+          m.feedback.rated ~ ' rated') }}
+  <div class="card stat">
+    <div class="n" style="font-size:24px">{{ m.users.verified }}</div>
+    <div class="l">Verified signups</div>
+    <div style="color:var(--muted);font-size:12px;margin-top:5px">
+      target 50 · {{ m.users.last_7d }} in last 7 days
+    </div>
+  </div>
+</div>
+
+<h2 class="sec" style="margin-top:22px">Crawl health (Gate 0)</h2>
+<div class="hero" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr))">
+  <div class="card stat">
+    <div class="n" style="font-size:22px;
+      color:{{ '#2e9e6b' if stats.is_fresh else 'var(--urgent)' }}">
+      {% if stats.minutes_since_crawl is none %}—{% else %}{{ stats.minutes_since_crawl }} min{% endif %}
+    </div>
+    <div class="l">Since last crawl</div>
+    <div style="color:var(--muted);font-size:12px;margin-top:5px">target under 30 min</div>
+  </div>
+  <div class="card stat">
+    <div class="n" style="font-size:22px">{{ "{:,}".format(stats.live_tenders) }}</div>
+    <div class="l">Live tenders</div>
+  </div>
+  <div class="card stat">
+    <div class="n" style="font-size:22px;
+      color:{{ 'var(--urgent)' if m.crawl.anomalies_7d else '#2e9e6b' }}">
+      {{ m.crawl.anomalies_7d }}</div>
+    <div class="l">Yield anomalies (7d)</div>
+    <div style="color:var(--muted);font-size:12px;margin-top:5px">must be 0</div>
+  </div>
+  <div class="card stat">
+    <div class="n" style="font-size:22px;
+      color:{{ 'var(--urgent)' if m.crawl.unresolved_failures else '#2e9e6b' }}">
+      {{ m.crawl.unresolved_failures }}</div>
+    <div class="l">Unresolved parse failures</div>
+  </div>
+</div>
+
+<div class="layout" style="grid-template-columns:1fr 1fr;margin-top:22px">
+  <div class="card">
+    <div class="bar"><strong>Alerts</strong></div>
+    <table class="kv">
+      <tr><th>Digests sent</th><td>{{ m.alerts_sent }}</td></tr>
+      <tr><th>Opened</th><td>{{ m.opened }}
+        {% if m.open_rate is not none %}({{ '%.0f'|format(m.open_rate * 100) }}% overall){% endif %}</td></tr>
+      <tr><th>Thumbs up</th><td>{{ m.feedback.up }}</td></tr>
+      <tr><th>Thumbs down</th><td>{{ m.feedback.down }}</td></tr>
+      <tr><th>Rated at all</th><td>{{ m.feedback.rated }} of {{ m.alerts_sent }} digests</td></tr>
+      <tr><th>Push subscriptions</th><td>{{ m.push.active }} active, {{ m.push.retired }} retired</td></tr>
+    </table>
+    <p style="padding:10px 16px;margin:0;color:var(--muted);font-size:12px">
+      §7 defines precision as thumbs-up over alerts sent. An unrated alert is
+      silence, not rejection, so both denominators are shown:
+      <strong>{% if m.precision_of_rated is not none %}{{ '%.0f'|format(m.precision_of_rated * 100) }}%{% else %}—{% endif %}</strong>
+      of rated,
+      <strong>{% if m.precision_of_sent is not none %}{{ '%.0f'|format(m.precision_of_sent * 100) }}%{% else %}—{% endif %}</strong>
+      of sent.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="bar"><strong>Matching</strong></div>
+    <table class="kv">
+      <tr><th>Total matches</th><td>{{ m.matches.total }}</td></tr>
+      <tr><th>Users with matches</th><td>{{ m.matches.users_with_matches }} of {{ m.users.verified }} verified</td></tr>
+      <tr><th>Found by both</th><td>{{ m.matches.both }}</td></tr>
+      <tr><th>Semantic only</th><td>{{ m.matches.semantic }}</td></tr>
+      <tr><th>Keyword only</th><td>{{ m.matches.keyword }}</td></tr>
+    </table>
+    <p style="padding:10px 16px;margin:0;color:var(--muted);font-size:12px">
+      Semantic-only is how Bangla-language profiles find anything: their query
+      terms cannot match English tender text, so full-text contributes nothing
+      for them.
+    </p>
+  </div>
+</div>
+
+<div class="card" style="margin-top:18px">
+  <div class="bar"><strong>Accounts</strong></div>
+  <table class="kv">
+    <tr><th>Total</th><td>{{ m.users.total }}</td></tr>
+    <tr><th>Verified</th><td>{{ m.users.verified }}</td></tr>
+    <tr><th>Unsubscribed</th><td>{{ m.users.unsubscribed }}</td></tr>
+    <tr><th>Signed up in last 7 days</th><td>{{ m.users.last_7d }}</td></tr>
+  </table>
+</div>
+{% endblock %}

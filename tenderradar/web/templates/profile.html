@@ -88,6 +88,24 @@
       <div style="padding:12px 16px"><a href="/signout" style="font-size:13.5px">Sign out</a></div>
     </div>
 
+    <div class="card" style="margin-bottom:18px">
+      <div class="bar"><strong>Notifications</strong></div>
+      <div style="padding:14px 16px">
+        <button id="push-btn" type="button"
+                style="background:var(--brand);color:#fff;border:0;padding:10px 18px;
+                       border-radius:8px;font-size:14px;cursor:pointer">
+          Turn on notifications
+        </button>
+        <p id="push-status" style="color:var(--muted);font-size:12.5px;margin:10px 0 0">
+          Checking…
+        </p>
+        <p style="color:var(--muted);font-size:12px;margin:8px 0 0">
+          Only for matches closing within 48 hours — when tomorrow's email
+          would arrive too late. Free, and you can turn it off any time.
+        </p>
+      </div>
+    </div>
+
     <div class="card">
       <div class="bar"><strong>Your current matches</strong>
         <span class="count">{{ matches|length }}</span></div>
@@ -109,4 +127,9 @@
     </div>
   </aside>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>window.VAPID_PUBLIC_KEY = {{ vapid_public_key|tojson }};</script>
+<script src="/static/push.js" defer></script>
 {% endblock %}

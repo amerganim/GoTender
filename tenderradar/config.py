@@ -40,7 +40,24 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
 
+    # Web Push (VAPID). Free and unlimited, unlike SMS (cost trap #1).
+    # Rotating these invalidates every existing browser subscription.
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_subject: str = "mailto:you@example.com"
+
+    # Only these addresses may open the admin dashboard.
+    admin_emails: str = ""
+
     log_level: str = "INFO"
+
+    @property
+    def admin_email_set(self) -> set[str]:
+        return {e.strip().lower() for e in self.admin_emails.split(",") if e.strip()}
+
+    @property
+    def push_enabled(self) -> bool:
+        return bool(self.vapid_public_key and self.vapid_private_key)
 
     @property
     def user_agent(self) -> str:

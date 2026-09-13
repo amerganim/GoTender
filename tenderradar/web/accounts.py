@@ -255,7 +255,8 @@ async def profile_view(request: Request) -> Response:
     return await _render(
         request, "profile.html",
         {"user": user, "profile": profile, "facets": facet, "matches": matches,
-         "errors": {}, "saved": request.query_params.get("saved") == "1"},
+         "errors": {}, "saved": request.query_params.get("saved") == "1",
+         "vapid_public_key": settings.vapid_public_key},
     )
 
 

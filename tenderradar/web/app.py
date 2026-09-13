@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import logging
 import math
+from pathlib import Path
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -126,8 +127,34 @@ TEMPLATES.env.filters["qs"] = qs
 
 # Imported after TEMPLATES exists: the accounts router renders with it.
 from tenderradar.web.accounts import router as accounts_router  # noqa: E402
+from tenderradar.web.admin import router as admin_router  # noqa: E402
+from tenderradar.web.push_routes import router as push_router  # noqa: E402
 
 app.include_router(accounts_router)
+app.include_router(admin_router)
+app.include_router(push_router)
+
+# The service worker must be served from the site root, not /static, or its
+# scope is limited to /static and it cannot receive pushes for other pages.
+_STATIC = Path(__file__).resolve().parent / "static"
+
+
+@app.get("/sw.js")
+async def service_worker() -> Response:
+    return Response(
+        (_STATIC / "sw.js").read_text(encoding="utf-8"),
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
+    )
+
+
+@app.get("/static/push.js")
+async def push_script() -> Response:
+    return Response(
+        (_STATIC / "push.js").read_text(encoding="utf-8"),
+        media_type="application/javascript",
+        headers={"Cache-Control": "max-age=300"},
+    )
 
 
 # ----------------------------------------------------------------- routes
