@@ -286,3 +286,81 @@ async def recent_tenders(
         (limit,),
     )
     return list(await cur.fetchall())
+
+
+# ----------------------------------------------------- programmatic SEO
+
+# Slug built in SQL so a URL can be matched without a lookup table. Bangla
+# organization names collapse to their ASCII fragments here; the full name is
+# always rendered on the page itself, so nothing is lost to the reader.
+ORG_SLUG_SQL = "regexp_replace(lower(organization_path), '[^a-z0-9]+', '-', 'g')"
+
+# §4: a landing page needs enough tenders to be worth indexing. Thin pages
+# earn nothing and risk looking like doorway spam.
+MIN_TENDERS_FOR_PAGE = 5
+
+
+async def district_pages(conn: AsyncConnection) -> list[dict[str, Any]]:
+    cur = await conn.execute(
+        f"""
+        SELECT district_name AS name, count(*) AS n
+          FROM tenders
+         WHERE district_name IS NOT NULL
+         GROUP BY district_name
+        HAVING count(*) >= {MIN_TENDERS_FOR_PAGE}
+         ORDER BY n DESC
+        """
+    )
+    return list(await cur.fetchall())
+
+
+async def organization_pages(conn: AsyncConnection) -> list[dict[str, Any]]:
+    cur = await conn.execute(
+        f"""
+        SELECT organization_path AS name,
+               {ORG_SLUG_SQL} AS slug,
+               count(*) AS n
+          FROM tenders
+         WHERE organization_path IS NOT NULL
+         GROUP BY organization_path
+        HAVING count(*) >= {MIN_TENDERS_FOR_PAGE}
+         ORDER BY n DESC
+        """
+    )
+    return list(await cur.fetchall())
+
+
+async def organization_by_slug(
+    conn: AsyncConnection, slug: str
+) -> str | None:
+    cur = await conn.execute(
+        f"""
+        SELECT organization_path AS name
+          FROM tenders
+         WHERE organization_path IS NOT NULL AND {ORG_SLUG_SQL} = %s
+         LIMIT 1
+        """,
+        (slug,),
+    )
+    row = await cur.fetchone()
+    return row["name"] if row else None
+
+
+async def sitemap_entries(conn: AsyncConnection, limit: int = 40000) -> dict[str, Any]:
+    """Everything worth indexing, newest tenders first."""
+    cur = await conn.execute(
+        """
+        SELECT id, greatest(first_seen_at, last_seen_at) AS updated
+          FROM tenders
+         WHERE status = 'live'
+         ORDER BY first_seen_at DESC
+         LIMIT %s
+        """,
+        (limit,),
+    )
+    tenders = list(await cur.fetchall())
+    return {
+        "tenders": tenders,
+        "districts": await district_pages(conn),
+        "organizations": await organization_pages(conn),
+    }

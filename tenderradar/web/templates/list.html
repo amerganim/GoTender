@@ -8,6 +8,10 @@
 {% block description %}{{ total }} live Bangladesh government tenders{% if filters.district %} in {{ filters.district }}{% endif %}{% if filters.nature %}, {{ filters.nature }}{% endif %}. Updated every 30 minutes from e-GP.{% endblock %}
 
 {% block content %}
+{% if heading %}
+<h1 class="page">{{ heading }}</h1>
+<p style="color:var(--muted);margin:-6px 0 16px">{{ blurb }}</p>
+{% endif %}
 <form class="search" action="/tenders" method="get">
   <input type="search" name="q" value="{{ filters.q or '' }}"
          placeholder="Search tenders, package numbers, organizations…" aria-label="Search tenders">

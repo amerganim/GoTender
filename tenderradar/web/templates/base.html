@@ -9,6 +9,10 @@
 <meta property="og:description" content="{{ self.description() }}">
 <meta property="og:type" content="website">
 <meta http-equiv="content-language" content="en, bn">
+{% if canonical %}<link rel="canonical" href="{{ canonical }}">{% endif %}
+<link rel="alternate" hreflang="en" href="{{ canonical or request.url.path }}">
+<link rel="alternate" hreflang="bn" href="{{ canonical or request.url.path }}">
+<link rel="alternate" hreflang="x-default" href="{{ canonical or request.url.path }}">
 {% block head %}{% endblock %}
 <style>
 /* No build step and no framework: Gate 1 wants this under 2s on 3G. */
@@ -120,6 +124,7 @@ footer{border-top:1px solid var(--line);padding:20px 0;color:var(--muted);
       <a href="/tenders?closing=today">Closing today</a>
       <a href="/tenders?closing=week">This week</a>
       <a href="/tenders">All tenders</a>
+      <a href="/browse">Browse</a>
     </nav>
   </div>
 </header>

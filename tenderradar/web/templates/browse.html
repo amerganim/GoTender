@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Browse Bangladesh tenders by district and organization — TenderRadar{% endblock %}
+{% block description %}Browse live Bangladesh government tenders by district, procuring organization and procurement type. Updated every 30 minutes from e-GP.{% endblock %}
+
+{% block content %}
+<h1 class="page">Browse tenders</h1>
+<p style="color:var(--muted);margin:-6px 0 20px">
+  {{ "{:,}".format(stats.live_tenders) }} live tenders across
+  {{ districts|length }} districts and {{ organizations|length }} procuring entities.
+</p>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="bar"><strong>By procurement type</strong></div>
+  <div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap">
+    {% for n in facets.natures %}
+    <a href="/tenders/type/{{ n.value }}" class="chip {{ n.value }}"
+       style="padding:6px 14px;font-size:14px;text-transform:capitalize">
+      {{ n.value }} ({{ n.n }})
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="bar"><strong>By district</strong>
+    <span class="count">{{ districts|length }} with 5 or more tenders</span></div>
+  <div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap">
+    {% for d in districts %}
+    <a href="/tenders/district/{{ d.name|urlencode }}" class="chip"
+       style="padding:6px 14px;font-size:14px">{{ d.name }} ({{ d.n }})</a>
+    {% else %}
+    <p style="color:var(--muted);margin:0">
+      District data arrives with detail pages. Run a crawl with detail fetches
+      to populate this.
+    </p>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="bar"><strong>By procuring entity</strong>
+    <span class="count">{{ organizations|length }} with 5 or more tenders</span></div>
+  <div style="padding:6px 16px 14px">
+    {% for o in organizations %}
+    <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;
+                border-bottom:1px solid var(--line);font-size:13.5px">
+      <a href="/tenders/organization/{{ o.slug }}">{{ o.name }}</a>
+      <span style="color:var(--muted)">{{ o.n }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

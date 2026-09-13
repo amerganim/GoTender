@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from decimal import Decimal
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Query, Request
@@ -173,6 +173,120 @@ async def tender_list(
     )
 
 
+@app.get("/browse", response_class=HTMLResponse)
+async def browse(request: Request) -> Response:
+    """Index of every landing page -- the crawlable hub for the SEO surface."""
+    async with connection() as conn:
+        stats = await queries.site_stats(conn)
+        districts = await queries.district_pages(conn)
+        organizations = await queries.organization_pages(conn)
+        facet = await queries.facets(conn, limit=50)
+
+    return TEMPLATES.TemplateResponse(
+        request,
+        "browse.html",
+        {
+            "stats": stats,
+            "districts": districts,
+            "organizations": organizations,
+            "facets": facet,
+        },
+    )
+
+
+@app.get("/tenders/district/{district}", response_class=HTMLResponse)
+async def district_page(
+    request: Request, district: str, page: int = Query(1, ge=1)
+) -> Response:
+    return await _landing(
+        request,
+        TenderFilters(district=district, page=page),
+        heading=f"Tenders in {district}",
+        blurb=(
+            f"Live government tender notices for {district} district, "
+            f"updated every 30 minutes from the Bangladesh e-GP portal."
+        ),
+        canonical=f"/tenders/district/{district}",
+    )
+
+
+@app.get("/tenders/organization/{slug}", response_class=HTMLResponse)
+async def organization_page(
+    request: Request, slug: str, page: int = Query(1, ge=1)
+) -> Response:
+    async with connection() as conn:
+        name = await queries.organization_by_slug(conn, slug)
+    if name is None:
+        async with connection() as conn:
+            stats = await queries.site_stats(conn)
+        return TEMPLATES.TemplateResponse(
+            request, "not_found.html", {"stats": stats}, status_code=404
+        )
+
+    return await _landing(
+        request,
+        TenderFilters(organization=name, page=page),
+        heading=f"Tenders from {name}",
+        blurb=(
+            f"Live tender notices published by {name}, updated every 30 "
+            f"minutes from the Bangladesh e-GP portal."
+        ),
+        canonical=f"/tenders/organization/{slug}",
+    )
+
+
+@app.get("/tenders/type/{nature}", response_class=HTMLResponse)
+async def nature_page(
+    request: Request, nature: str, page: int = Query(1, ge=1)
+) -> Response:
+    return await _landing(
+        request,
+        TenderFilters(nature=nature, page=page),
+        heading=f"{nature.title()} tenders in Bangladesh",
+        blurb=(
+            f"Live {nature} procurement notices from Bangladesh government "
+            f"buyers, updated every 30 minutes."
+        ),
+        canonical=f"/tenders/type/{nature}",
+    )
+
+
+async def _landing(
+    request: Request,
+    filters: TenderFilters,
+    *,
+    heading: str,
+    blurb: str,
+    canonical: str,
+) -> Response:
+    """Shared renderer for the programmatic landing pages."""
+    filters = filters.normalized()
+    async with connection() as conn:
+        rows, total = await queries.list_tenders(conn, filters)
+        facet = await queries.facets(conn, limit=15)
+        stats = await queries.site_stats(conn)
+
+    pages = max(1, math.ceil(total / filters.per_page))
+    return TEMPLATES.TemplateResponse(
+        request,
+        "list.html",
+        {
+            "tenders": rows,
+            "total": total,
+            "filters": filters,
+            "facets": facet,
+            "stats": stats,
+            "pages": pages,
+            "heading": heading,
+            "blurb": blurb,
+            "canonical": canonical,
+        },
+    )
+
+
+# Registered after the literal /tenders/* routes on purpose. Starlette
+# matches in declaration order, so a catch-all declared earlier would
+# capture /tenders/district/Dhaka and fail int validation with a 422.
 @app.get("/tenders/{tender_id}", response_class=HTMLResponse)
 async def tender_detail(request: Request, tender_id: int) -> Response:
     async with connection() as conn:
@@ -188,6 +302,55 @@ async def tender_detail(request: Request, tender_id: int) -> Response:
         request,
         "detail.html",
         {"t": tender, "versions": versions, "stats": stats},
+    )
+
+
+@app.get("/sitemap.xml")
+async def sitemap() -> Response:
+    async with connection() as conn:
+        data = await queries.sitemap_entries(conn)
+
+    base = ""  # relative URLs; set SITE_BASE_URL when a domain exists
+    parts = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        f"<url><loc>{base}/</loc><changefreq>hourly</changefreq>"
+        f"<priority>1.0</priority></url>",
+        f"<url><loc>{base}/tenders</loc><changefreq>hourly</changefreq>"
+        f"<priority>0.9</priority></url>",
+        f"<url><loc>{base}/browse</loc><changefreq>daily</changefreq>"
+        f"<priority>0.8</priority></url>",
+    ]
+    for d in data["districts"]:
+        parts.append(
+            f"<url><loc>{base}/tenders/district/{quote(d['name'])}</loc>"
+            f"<changefreq>daily</changefreq><priority>0.7</priority></url>"
+        )
+    for o in data["organizations"]:
+        parts.append(
+            f"<url><loc>{base}/tenders/organization/{quote(o['slug'])}</loc>"
+            f"<changefreq>daily</changefreq><priority>0.6</priority></url>"
+        )
+    for t in data["tenders"]:
+        updated = t["updated"]
+        lastmod = f"<lastmod>{updated:%Y-%m-%d}</lastmod>" if updated else ""
+        parts.append(
+            f"<url><loc>{base}/tenders/{t['id']}</loc>{lastmod}"
+            f"<changefreq>daily</changefreq><priority>0.5</priority></url>"
+        )
+    parts.append("</urlset>")
+    return Response("\n".join(parts), media_type="application/xml")
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots() -> str:
+    # We ask e-GP's crawler etiquette of ourselves (§8), so we state ours.
+    return (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /healthz\n"
+        "\n"
+        "Sitemap: /sitemap.xml\n"
     )
 
 
