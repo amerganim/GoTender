@@ -106,6 +106,14 @@ experience, trade licence and liquid-asset clauses — in free HTML. That is
 Phase 5 Layer 3 input available without parsing a single PDF, which matters
 for cost trap #2.
 
+### Package numbers
+
+Most live rows carry **no package number** — the brief cell is just the
+description. A package number, when present, is a single whitespace-free token
+containing a digit or a slash (`PSWSC-6145`, `LGED/GOBM/SRJ/26-27/RW-49`), so
+that is how the parser detects one. Treating the first line as a package number
+unconditionally shifted every field by one for the majority of tenders.
+
 ### Live vs detail merging
 
 A list row carries a subset of fields; the detail page carries all of them.
@@ -113,6 +121,21 @@ Upserts **merge** — a missing value never overwrites a known one — and the
 canonical hash is computed on the merged result. Without this, every 30-minute
 sweep would null out district and security, flip the hash back and forth, and
 manufacture a fresh "corrigendum" for every tender on every crawl.
+
+That alone proved insufficient in practice. The two views genuinely *disagree*
+on some fields: the list renders a title as "Procurement of surgical equipment"
+where the detail page says "Procurement of Surgical Equipment". So once a
+detail page has been seen, a list sweep may only **fill gaps** — it can never
+contradict detail data.
+
+Money needs care for the same reason. `NUMERIC(18,2)` returns `800000.00` where
+the parser produced `800000`; they are equal as Decimals but differ as text, so
+an unquantized hash flips on every reload. Amounts are quantized before
+hashing, and the upsert refuses to write a version whose field diff is empty —
+a hash change with no field change is a serialization bug, never a corrigendum.
+
+**The check that matters:** run a crawl twice. The second must report
+`0 new, 0 changed`. Run it after touching the parser, the upsert or the hash.
 
 ## Rules this code will not break
 

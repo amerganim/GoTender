@@ -431,8 +431,40 @@ Phase 0, task 1 is **built**: source adapter framework, e-GP tender-search
 adapter, raw archive, dedup + versioning, crawl scheduler, yield monitoring.
 See README.md for commands and the adapter's behaviour.
 
-**Next:** point `DATABASE_URL` at a database, run the migration, and start the
+**Verified end to end against Neon (Postgres 18) on 2026-09-13:** migrations
+apply, a crawl writes tenders, versions, raw documents and crawl runs, and
+three consecutive sweeps report `0 new, 0 changed`. `health` reports freshness
+and per-run yield.
+
+**Next:** widen from `--pages 2` to the full 38-page sweep and start the
 72-hour unattended run that Gate 0 requires.
+
+### Three bugs the first real crawl exposed — all fixed, all with tests
+
+These only appeared once data round-tripped through Postgres. Parser unit tests
+could not have caught the last two.
+
+1. **`package_no` was the description for ~79% of tenders.** The list cell is
+   `[nature, package_no, description]` only when a package number exists;
+   most rows are just `[nature, description]`, so every field shifted by one.
+   Package numbers are now detected by shape (one whitespace-free token
+   containing a digit or slash). Migration `002` repairs affected rows.
+2. **List sweeps overwrote authoritative detail data.** The list and detail
+   views genuinely disagree — different capitalisation of the same title, and
+   the list omits package numbers. "Never overwrite with NULL" was not enough;
+   a list sweep now may only fill gaps once a detail page has been seen.
+3. **Money broke the canonical hash.** `NUMERIC(18,2)` returns `800000.00`
+   where the parser produced `800000`. Equal as Decimals, different as text,
+   so the hash flipped on every reload and wrote a version whose
+   `changed_fields` was empty. Money is now quantized before hashing, and the
+   upsert refuses to write a version with an empty diff — a hash change with no
+   field change is always a serialization bug, never a corrigendum.
+
+Each would have produced a corrigendum for every affected tender on every
+30-minute sweep: thousands of phantom amendments a day, destroying both the
+alert product and the Gate 2 match-precision signal. **Re-running a sweep and
+asserting `0 new, 0 changed` is the single most valuable check in this
+project** — run it after any change to the parser, the upsert or the hash.
 
 ### Source recon findings (Sep 2026) — these amend sections above
 
