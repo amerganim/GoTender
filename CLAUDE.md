@@ -425,7 +425,32 @@ gateway setup (SSLCommerz ৳25,500 — check cheaper alternatives first), domai
 
 ---
 
-## 13. Right now
+## 13. Phase status
+
+| Phase | State |
+|---|---|
+| 0 — Crawler and corpus | **Built.** Gate 0 NOT passed |
+| 1 — Public site and SEO | **Built.** Gate 1 partially evidenced |
+| 2 — Accounts and matching | Not started |
+| 3 — Money test | Not started (not code) |
+| 4 — Monetize and broaden | Not started |
+| 5 — Defensible layer | Not started |
+
+**Gate 0 is not passed** and must not be quietly skipped:
+- Coverage parity needs an offline-tender adapter; the e-tender pool is ~3,740
+  against the ~8,500 figure in §2, which includes offline tenders and auctions.
+- No 72-hour unattended run has happened. The longest run to date is one full
+  sweep of 23 minutes.
+
+**Gate 1 evidence so far:** 4,027 sitemap URLs against the 200+ requirement,
+and the homepage states minutes-since-crawl plus the live count on every page.
+Load time under 2s on 3G is NOT yet measured.
+
+Phase 1 was built before Gate 0 passed, at the operator's explicit request, to
+make crawl quality inspectable. That was a deliberate exception, not a
+precedent.
+
+## 14. Right now
 
 Phase 0, task 1 is **built**: source adapter framework, e-GP tender-search
 adapter, raw archive, dedup + versioning, crawl scheduler, yield monitoring.
