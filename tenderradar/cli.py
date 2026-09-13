@@ -23,6 +23,7 @@ from tenderradar.crawl.archive import RawArchive
 from tenderradar.crawl.runner import CrawlRunner
 from tenderradar.crawl.scheduler import run_forever
 from tenderradar.db.pool import close_pool, connection
+from tenderradar.runtime import run as run_async
 
 log = logging.getLogger("tenderradar")
 
@@ -219,7 +220,7 @@ def main() -> int:
         level=logging.DEBUG if args.verbose else settings.log_level,
         format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
     )
-    return asyncio.run(args.func(args))
+    return run_async(args.func(args))
 
 
 if __name__ == "__main__":

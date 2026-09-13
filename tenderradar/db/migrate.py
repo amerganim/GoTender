@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 from tenderradar.db.pool import close_pool, connection
+from tenderradar.runtime import run as run_async
 
 log = logging.getLogger(__name__)
 
@@ -108,4 +109,4 @@ async def _main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(_main()))
+    sys.exit(run_async(_main()))
