@@ -198,6 +198,19 @@ def test_detail_labels_tolerate_whitespace_variation(adapter: EgpTenderAdapter):
     ) == "13-Sep-2026 13:00"
 
 
+def test_fixtures_are_uncorrupted_captures():
+    """Fixtures must be the portal's exact bytes.
+
+    Capturing a response through text mode on Windows rewrites the \\n of each
+    existing \\r\\n, producing \\r\\r\\n and a fixture that no longer matches
+    what the parser sees in production. Write captures with 'wb'.
+    """
+    for path in FIXTURES.glob("egp_*.html"):
+        content = path.read_bytes()
+        assert b"\r\r\n" not in content, f"{path.name} has doubled carriage returns"
+        assert b"\x00" not in content, f"{path.name} contains NUL bytes"
+
+
 def test_parse_is_pure(adapter: EgpTenderAdapter):
     """Same bytes in, same records out -- what makes archive replay possible."""
     first = adapter.parse(_result("egp_list_live.html", PayloadKind.LIST))
