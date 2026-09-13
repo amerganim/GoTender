@@ -32,8 +32,9 @@ Then create the schema:
 python -m tenderradar.db.migrate
 ```
 
-Windows note: run with `PYTHONUTF8=1` (or set it globally). Tender text is
-mixed Bangla/English and the default console codepage mangles it.
+Windows note: the CLI forces UTF-8 output itself, so Bangla tender text
+prints correctly on a legacy console codepage. If you run ad-hoc Python
+against this package outside the CLI, set `PYTHONUTF8=1` first.
 
 ## Commands
 

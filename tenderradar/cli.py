@@ -168,7 +168,23 @@ async def cmd_replay(args: argparse.Namespace) -> int:
     return 0
 
 
+def _force_utf8_output() -> None:
+    """Print UTF-8 regardless of the console's codepage (§9).
+
+    Windows consoles default to a legacy codepage (cp1252 here), which cannot
+    encode Bangla. Without this, printing a single Bangla tender title raises
+    UnicodeEncodeError and kills the command halfway through a crawl. errors
+    are replaced rather than raised so operator output can never be the thing
+    that breaks a run.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main() -> int:
+    _force_utf8_output()
     parser = argparse.ArgumentParser(prog="tenderradar")
     parser.add_argument("--verbose", "-v", action="store_true")
     sub = parser.add_subparsers(dest="command", required=True)
