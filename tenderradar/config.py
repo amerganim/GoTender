@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -28,10 +29,18 @@ class Settings(BaseSettings):
 
     @property
     def user_agent(self) -> str:
-        """User-Agent with the contact email appended, per §8.1."""
-        if self.crawler_contact_email and "mailto:" not in self.crawler_user_agent:
-            return f"{self.crawler_user_agent} (+mailto:{self.crawler_contact_email})"
-        return self.crawler_user_agent
+        """User-Agent with the real contact email appended, per §8.1.
+
+        crawler_contact_email is authoritative: any mailto already present in
+        crawler_user_agent is stripped first. Otherwise a placeholder left in
+        the base string silently wins and the bot identifies itself to a
+        government host with an address nobody reads, which is worse than
+        giving no address at all.
+        """
+        base = re.sub(r"\s*\(\+?mailto:[^)]*\)", "", self.crawler_user_agent).strip()
+        if self.crawler_contact_email:
+            return f"{base} (+mailto:{self.crawler_contact_email})"
+        return base
 
 
 settings = Settings()
