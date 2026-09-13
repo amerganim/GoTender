@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}
+{%- if filters.q %}“{{ filters.q }}” — tender search
+{%- elif filters.district %}Tenders in {{ filters.district }}
+{%- elif filters.closing == 'today' %}Tenders closing today
+{%- else %}All live Bangladesh tenders{% endif %} — TenderRadar
+{% endblock %}
+{% block description %}{{ total }} live Bangladesh government tenders{% if filters.district %} in {{ filters.district }}{% endif %}{% if filters.nature %}, {{ filters.nature }}{% endif %}. Updated every 30 minutes from e-GP.{% endblock %}
+
+{% block content %}
+<form class="search" action="/tenders" method="get">
+  <input type="search" name="q" value="{{ filters.q or '' }}"
+         placeholder="Search tenders, package numbers, organizations…" aria-label="Search tenders">
+  {% if filters.district %}<input type="hidden" name="district" value="{{ filters.district }}">{% endif %}
+  {% if filters.nature %}<input type="hidden" name="nature" value="{{ filters.nature }}">{% endif %}
+  {% if filters.method %}<input type="hidden" name="method" value="{{ filters.method }}">{% endif %}
+  {% if filters.closing %}<input type="hidden" name="closing" value="{{ filters.closing }}">{% endif %}
+  <button type="submit">Search</button>
+</form>
+
+<div class="layout">
+  <aside class="card side">
+    <h3>Closing</h3>
+    <ul>
+      <li><a href="/tenders{{ filters.query_params(closing='today')|qs }}"
+             class="{{ 'on' if filters.closing == 'today' }}"><span>Today</span></a></li>
+      <li><a href="/tenders{{ filters.query_params(closing='week')|qs }}"
+             class="{{ 'on' if filters.closing == 'week' }}"><span>This week</span></a></li>
+      <li><a href="/tenders{{ filters.query_params(closing=None)|qs }}"
+             class="{{ 'on' if not filters.closing }}"><span>Any time</span></a></li>
+    </ul>
+
+    <h3>Type</h3>
+    <ul>
+      {% for n in facets.natures %}
+      <li><a href="/tenders{{ filters.query_params(nature=n.value)|qs }}"
+             class="{{ 'on' if filters.nature == n.value }}">
+        <span style="text-transform:capitalize">{{ n.value }}</span>
+        <span class="n">{{ n.n }}</span></a></li>
+      {% endfor %}
+    </ul>
+
+    <h3>District</h3>
+    <ul>
+      {% for d in facets.districts %}
+      <li><a href="/tenders{{ filters.query_params(district=d.value)|qs }}"
+             class="{{ 'on' if filters.district == d.value }}">
+        <span>{{ d.value }}</span><span class="n">{{ d.n }}</span></a></li>
+      {% else %}
+      <li><span class="n">Districts appear as detail pages are fetched.</span></li>
+      {% endfor %}
+    </ul>
+
+    <h3>Method</h3>
+    <ul>
+      {% for m in facets.methods %}
+      <li><a href="/tenders{{ filters.query_params(method=m.value)|qs }}"
+             class="{{ 'on' if filters.method == m.value }}">
+        <span>{{ m.value }}</span><span class="n">{{ m.n }}</span></a></li>
+      {% endfor %}
+    </ul>
+  </aside>
+
+  <div class="card">
+    <div class="bar">
+      <span class="count"><strong>{{ "{:,}".format(total) }}</strong> tender{{ '' if total == 1 else 's' }}
+        {%- if filters.q %} matching “{{ filters.q }}”{% endif %}</span>
+      {% if filters.is_filtered %}
+      <span class="active-filters">
+        {% if filters.district %}<a href="/tenders{{ filters.query_params(district=None)|qs }}">{{ filters.district }} ✕</a>{% endif %}
+        {% if filters.nature %}<a href="/tenders{{ filters.query_params(nature=None)|qs }}">{{ filters.nature }} ✕</a>{% endif %}
+        {% if filters.method %}<a href="/tenders{{ filters.query_params(method=None)|qs }}">{{ filters.method }} ✕</a>{% endif %}
+        {% if filters.closing %}<a href="/tenders{{ filters.query_params(closing=None)|qs }}">{{ filters.closing }} ✕</a>{% endif %}
+        {% if filters.organization %}<a href="/tenders{{ filters.query_params(organization=None)|qs }}">org ✕</a>{% endif %}
+        <a href="/tenders">clear all</a>
+      </span>
+      {% endif %}
+    </div>
+
+    {% for t in tenders %}
+    <article class="tender">
+      <h2><a href="/tenders/{{ t.id }}">{{ t.title or t.package_no or 'Untitled tender' }}</a></h2>
+      <div class="org">{{ t.organization_path or '—' }}</div>
+      <div class="meta">
+        <span class="chip {{ t.procurement_nature }}">{{ t.procurement_nature }}</span>
+        {% if t.procurement_method %}<span class="chip">{{ t.procurement_method }}</span>{% endif %}
+        {% if t.district_name %}<span class="chip">{{ t.district_name }}</span>{% endif %}
+        {% if t.package_no %}<span class="chip">{{ t.package_no }}</span>{% endif %}
+        {% if t.tender_security %}<span class="chip">security {{ t.tender_security|taka }}</span>{% endif %}
+        <span class="due {{ t.closing_at|urgency }}">{{ t.closing_at|countdown }}</span>
+      </div>
+    </article>
+    {% else %}
+    <div class="empty">
+      <p>No tenders match these filters.</p>
+      <p><a href="/tenders">Clear filters</a></p>
+    </div>
+    {% endfor %}
+
+    {% if pages > 1 %}
+    <div class="pager">
+      {% if filters.page > 1 %}
+        <a href="/tenders{{ filters.query_params(page=filters.page - 1)|qs }}">← Prev</a>
+      {% else %}<span class="off">← Prev</span>{% endif %}
+      <span class="cur">{{ filters.page }} of {{ "{:,}".format(pages) }}</span>
+      {% if filters.page < pages %}
+        <a href="/tenders{{ filters.query_params(page=filters.page + 1)|qs }}">Next →</a>
+      {% else %}<span class="off">Next →</span>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

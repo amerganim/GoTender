@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}{{ t.title or t.package_no or 'Tender' }} — TenderRadar{% endblock %}
+{% block description %}{{ (t.description or t.title or '')[:160] }}{% endblock %}
+{% block head %}
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"GovernmentService",
+  "name":{{ (t.title or t.package_no or 'Tender')|tojson }},
+  "provider":{"@type":"GovernmentOrganization","name":{{ (t.organization_path or '')|tojson }}},
+  "areaServed":{{ (t.district_name or 'Bangladesh')|tojson }}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<p style="font-size:13.5px;margin:0 0 12px">
+  <a href="/tenders">All tenders</a>
+  {% if t.district_name %} › <a href="/tenders?district={{ t.district_name|urlencode }}">{{ t.district_name }}</a>{% endif %}
+  {% if t.procurement_nature %} › <a href="/tenders?nature={{ t.procurement_nature }}">{{ t.procurement_nature }}</a>{% endif %}
+</p>
+
+<div class="card" style="padding:20px;margin-bottom:20px">
+  <h1 class="page" style="margin-bottom:8px">{{ t.title or t.package_no or 'Untitled tender' }}</h1>
+  <div class="org" style="color:var(--muted);margin-bottom:12px">{{ t.organization_path or '—' }}</div>
+  <div class="meta">
+    <span class="chip {{ t.procurement_nature }}">{{ t.procurement_nature }}</span>
+    {% if t.procurement_type %}<span class="chip">{{ t.procurement_type }}</span>{% endif %}
+    {% if t.procurement_method %}<span class="chip">{{ t.procurement_method }}</span>{% endif %}
+    {% if t.district_name %}<span class="chip">{{ t.district_name }}</span>{% endif %}
+    <span class="due {{ t.closing_at|urgency }}">{{ t.closing_at|countdown }}</span>
+  </div>
+</div>
+
+<div class="layout" style="grid-template-columns:1fr 320px">
+  <div>
+    {% if t.description %}
+    <div class="card" style="padding:18px;margin-bottom:20px">
+      <h2 class="sec">Description</h2>
+      <p style="margin:0;white-space:pre-wrap">{{ t.description }}</p>
+    </div>
+    {% endif %}
+
+    {% if t.lots %}
+    <div class="card" style="margin-bottom:20px">
+      <div class="bar"><strong>Lots</strong></div>
+      <table class="kv">
+        <tr><th style="width:auto">Lot</th><th>Location</th><th>Security</th></tr>
+        {% for lot in t.lots %}
+        <tr>
+          <td>{{ lot.lot_no }}</td>
+          <td>{{ lot.location or '—' }}</td>
+          <td>{% if lot.security_amount %}৳{{ "{:,}".format(lot.security_amount|int) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+
+    {% if t.eligibility_text %}
+    <div class="card" style="padding:18px;margin-bottom:20px">
+      <h2 class="sec">Eligibility of tenderer</h2>
+      <p style="margin:0;white-space:pre-wrap;font-size:14px">{{ t.eligibility_text }}</p>
+    </div>
+    {% endif %}
+
+    {% if versions %}
+    <div class="card" style="margin-bottom:20px">
+      <div class="bar"><strong>Amendment history</strong>
+        <span class="count">{{ versions|length }} amendment{{ '' if versions|length == 1 else 's' }} by the procuring entity</span></div>
+      <table class="kv">
+        {% for v in versions %}
+        <tr>
+          <th>v{{ v.version_no }} · {{ v.change_type }}</th>
+          <td>
+            <div style="color:var(--muted);font-size:12.5px">{{ v.observed_at|dhaka }}</div>
+            {% for field, change in (v.changed_fields or {}).items() %}
+            <div style="font-size:13px;margin-top:3px">
+              <strong>{{ field }}</strong>: {{ change.old or '—' }} → {{ change.new or '—' }}
+            </div>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <aside>
+    <div class="card" style="margin-bottom:20px">
+      <div class="bar"><strong>Key dates</strong></div>
+      <table class="kv">
+        <tr><th>Published</th><td>{{ t.published_at|dhaka }}</td></tr>
+        <tr><th>Closing</th><td><strong>{{ t.closing_at|dhaka }}</strong></td></tr>
+        <tr><th>Opening</th><td>{{ t.opening_at|dhaka }}</td></tr>
+        <tr><th>Docs until</th><td>{{ t.document_last_selling_at|dhaka }}</td></tr>
+      </table>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="bar"><strong>Details</strong></div>
+      <table class="kv">
+        <tr><th>Tender ID</th><td>{{ t.external_ref }}</td></tr>
+        {% if t.package_no %}<tr><th>Package</th><td>{{ t.package_no }}</td></tr>{% endif %}
+        {% if t.reference_no %}<tr><th>Reference</th><td style="font-size:12.5px">{{ t.reference_no }}</td></tr>{% endif %}
+        <tr><th>Security</th><td>{{ t.tender_security|taka }}</td></tr>
+        <tr><th>Document price</th><td>{{ t.document_price|taka }}</td></tr>
+        {% if t.project_name %}<tr><th>Project</th><td>{{ t.project_name }}</td></tr>{% endif %}
+        <tr><th>Status</th><td>{{ t.status }}</td></tr>
+      </table>
+    </div>
+
+    {% if t.detail_url %}
+    <div class="card" style="padding:16px">
+      <a href="{{ t.detail_url }}" rel="noopener nofollow" target="_blank"
+         style="display:block;text-align:center;background:var(--brand);color:#fff;
+                padding:11px;border-radius:8px;font-weight:600">
+        View official notice on e-GP ↗
+      </a>
+      <p style="color:var(--muted);font-size:12.5px;margin:10px 0 0;text-align:center">
+        Documents stay on the government portal. We link, never rehost.
+      </p>
+    </div>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

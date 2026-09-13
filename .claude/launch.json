@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tenderradar-web",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "tenderradar.web.app:app", "--port", "8020", "--reload"],
+      "port": 8020
+    }
+  ]
+}

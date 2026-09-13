@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}TenderRadar — Bangladesh tenders, updated every 30 minutes{% endblock %}
+
+{% block content %}
+<form class="search" action="/tenders" method="get">
+  <input type="search" name="q" placeholder="Search tenders, package numbers, organizations…" aria-label="Search tenders">
+  <button type="submit">Search</button>
+</form>
+
+<div class="hero">
+  <div class="card stat accent">
+    <div class="n">{{ "{:,}".format(stats.live_tenders) }}</div>
+    <div class="l">Live tenders</div>
+  </div>
+  <div class="card stat">
+    <div class="n">{{ stats.closing_today }}</div>
+    <div class="l">Closing today</div>
+  </div>
+  <div class="card stat">
+    <div class="n">{{ stats.closing_week }}</div>
+    <div class="l">Closing this week</div>
+  </div>
+  <div class="card stat">
+    <div class="n">{{ stats.added_today }}</div>
+    <div class="l">Added in 24h</div>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="card side">
+    <h3>District</h3>
+    <ul>
+      {% for d in facets.districts %}
+      <li><a href="/tenders?district={{ d.value|urlencode }}">
+        <span>{{ d.value }}</span><span class="n">{{ d.n }}</span></a></li>
+      {% else %}
+      <li><span class="n">No districts yet — detail pages supply these.</span></li>
+      {% endfor %}
+    </ul>
+
+    <h3>Type</h3>
+    <ul>
+      {% for n in facets.natures %}
+      <li><a href="/tenders?nature={{ n.value }}">
+        <span style="text-transform:capitalize">{{ n.value }}</span>
+        <span class="n">{{ n.n }}</span></a></li>
+      {% endfor %}
+    </ul>
+
+    <h3>Method</h3>
+    <ul>
+      {% for m in facets.methods %}
+      <li><a href="/tenders?method={{ m.value|urlencode }}">
+        <span>{{ m.value }}</span><span class="n">{{ m.n }}</span></a></li>
+      {% endfor %}
+    </ul>
+  </aside>
+
+  <div>
+    <div class="card" style="margin-bottom:20px">
+      <div class="bar">
+        <strong>Just added</strong>
+        <a href="/tenders" style="font-size:13.5px">Browse all →</a>
+      </div>
+      {% for t in recent %}
+      <article class="tender">
+        <h2><a href="/tenders/{{ t.id }}">{{ t.title or t.package_no or 'Untitled tender' }}</a></h2>
+        <div class="org">{{ t.organization_path or '—' }}</div>
+        <div class="meta">
+          <span class="chip {{ t.procurement_nature }}">{{ t.procurement_nature }}</span>
+          {% if t.district_name %}<span class="chip">{{ t.district_name }}</span>{% endif %}
+          {% if t.package_no %}<span class="chip">{{ t.package_no }}</span>{% endif %}
+          <span class="due {{ t.closing_at|urgency }}">{{ t.closing_at|countdown }}</span>
+        </div>
+      </article>
+      {% else %}
+      <div class="empty">No tenders yet. Run a crawl to populate the directory.</div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <div class="bar"><strong>Top procuring entities</strong></div>
+      <div style="padding:6px 16px 14px">
+        {% for o in facets.organizations[:10] %}
+        <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13.5px">
+          <a href="/tenders?organization={{ o.value|urlencode }}">{{ o.value }}</a>
+          <span class="n" style="color:var(--muted)">{{ o.n }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
