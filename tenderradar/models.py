@@ -11,7 +11,7 @@ import hashlib
 import json
 import unicodedata
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from typing import ClassVar
 
@@ -37,6 +37,19 @@ class ChangeType(StrEnum):
     CORRIGENDUM = "corrigendum"
     CANCELLATION = "cancellation"
     EXTENSION = "extension"
+
+
+# Matches the NUMERIC(18,2) scale used for every money column.
+_MONEY_SCALE = Decimal("0.01")
+
+
+def _quantize_money(value: Decimal) -> Decimal:
+    """Put a Decimal on the same scale the database stores it at."""
+    try:
+        return value.quantize(_MONEY_SCALE)
+    except InvalidOperation:
+        # Absurdly large value; hash the raw text rather than crash a crawl.
+        return value
 
 
 def normalize_text(value: str | None) -> str | None:
@@ -157,7 +170,15 @@ class TenderRecord(BaseModel):
             if isinstance(value, datetime):
                 value = value.isoformat()
             elif isinstance(value, Decimal):
-                value = str(value)
+                # Quantize to the scale of the NUMERIC(18,2) columns these are
+                # stored in. Postgres returns 800000.00 where the adapter
+                # parsed 800000; the two are equal as Decimals but str() gives
+                # different text, so an unquantized hash flips on every reload
+                # and invents a corrigendum for every tender that has a money
+                # field. Money is only ever parsed from the detail page, which
+                # is why this surfaced as churn on exactly the detail-fetched
+                # rows.
+                value = str(_quantize_money(value))
             elif isinstance(value, StrEnum):
                 value = value.value
             payload[name] = value

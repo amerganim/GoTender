@@ -40,16 +40,16 @@ def list_record(**overrides) -> TenderRecord:
 
 
 def detail_record(**overrides) -> TenderRecord:
-    """What a detail page adds on top."""
-    return list_record(
+    """What a detail page adds on top. Overrides win over the defaults."""
+    base = dict(
         district="Sylhet",
         upazila="Golapganj",
         tender_security=Decimal("800000"),
         document_price=Decimal("4000"),
         eligibility_text="Trade licence, VAT, turnover certificate required.",
         categories=["Construction work"],
-        **overrides,
     )
+    return list_record(**(base | overrides))
 
 
 # --------------------------------------------------------------- hashing
@@ -198,3 +198,94 @@ def test_normalize_text_collapses_and_strips():
 
     assert normalize_text("   ") is None
     assert normalize_text(None) is None
+
+
+# --------------------------------------- detail outranks list (provenance)
+
+
+def test_list_cannot_overwrite_a_field_the_detail_page_set():
+    """The bug that produced a corrigendum per tender per sweep.
+
+    The two views genuinely disagree: the list renders a title in one case,
+    the detail page in another, and the list omits the package number for most
+    tenders. Skipping None is not enough -- a list sweep must not contradict
+    detail data at all.
+    """
+    stored = detail_record(package_no="Police/26-27/Thana/WD25a",
+                           title="Procurement of Surgical Equipment")
+    incoming = list_record(package_no=None,
+                           title="Procurement of surgical equipment")
+
+    merged = merge_records(stored, incoming, fill_only=True)
+
+    assert merged.package_no == "Police/26-27/Thana/WD25a"
+    assert merged.title == "Procurement of Surgical Equipment"
+    assert merged.canonical_hash() == stored.canonical_hash()
+
+
+def test_fill_only_still_populates_genuinely_empty_fields():
+    stored = list_record(district=None, tender_security=None)
+    incoming = list_record(district="Sylhet", tender_security=Decimal("800000"))
+
+    merged = merge_records(stored, incoming, fill_only=True)
+
+    assert merged.district == "Sylhet"
+    assert merged.tender_security == Decimal("800000")
+
+
+def test_detail_sweep_may_still_correct_list_data():
+    """fill_only applies only to list sweeps; detail keeps its authority."""
+    stored = list_record(title="Procurement of surgical equipment")
+    incoming = detail_record(title="Procurement of Surgical Equipment")
+
+    merged = merge_records(stored, incoming, fill_only=False)
+
+    assert merged.title == "Procurement of Surgical Equipment"
+
+
+def test_repeated_list_sweeps_after_detail_are_completely_stable():
+    """Ten sweeps, zero version churn -- the 30-minute crawl running all day."""
+    stored = detail_record(package_no="PSWSC-6145")
+    for _ in range(10):
+        merged = merge_records(
+            stored, list_record(package_no=None, title="different CASE here"),
+            fill_only=True,
+        )
+        assert merged.canonical_hash() == stored.canonical_hash()
+        stored = merged
+
+
+# ------------------------------------------- money round-trips through SQL
+
+
+def test_decimal_scale_from_postgres_does_not_change_the_hash():
+    """NUMERIC(18,2) hands back 800000.00 where the parser produced 800000.
+
+    The two are equal as Decimals, so a field diff shows nothing, but str()
+    renders them differently. An unquantized hash therefore flipped on every
+    reload and produced a version with an EMPTY changed_fields -- a phantom
+    corrigendum for every tender carrying a money value.
+    """
+    parsed = detail_record(tender_security=Decimal("800000"),
+                           document_price=Decimal("4000"))
+    from_db = detail_record(tender_security=Decimal("800000.00"),
+                            document_price=Decimal("4000.00"))
+
+    assert parsed.canonical_hash() == from_db.canonical_hash()
+    assert parsed.changed_fields(from_db) == {}
+
+
+def test_real_money_differences_are_still_detected():
+    a = detail_record(tender_security=Decimal("800000.00"))
+    b = detail_record(tender_security=Decimal("800000.01"))
+    assert a.canonical_hash() != b.canonical_hash()
+
+
+def test_hash_and_diff_agree_for_every_money_field():
+    """A hash change with no field change is a serialization bug, always."""
+    base = detail_record()
+    for field in ("estimated_value", "tender_security", "document_price"):
+        unscaled = base.model_copy(update={field: Decimal("1500")})
+        scaled = base.model_copy(update={field: Decimal("1500.00")})
+        assert unscaled.canonical_hash() == scaled.canonical_hash(), field
+        assert unscaled.changed_fields(scaled) == {}, field

@@ -198,11 +198,22 @@ def _row_to_record(row: dict[str, Any], source_key: str) -> TenderRecord:
     )
 
 
-def merge_records(stored: TenderRecord, incoming: TenderRecord) -> TenderRecord:
+def merge_records(
+    stored: TenderRecord, incoming: TenderRecord, *, fill_only: bool = False
+) -> TenderRecord:
     """Overlay incoming onto stored; a None or empty value never erases data.
 
     This is what lets a thin list row and a rich detail row describe the same
     tender without fighting each other.
+
+    fill_only makes the overlay strictly additive: incoming may populate fields
+    that are still empty, but may not change any field that already holds a
+    value. That is how a list sweep is prevented from overwriting authoritative
+    detail data. It is not enough to skip None values, because the two views
+    genuinely disagree on some fields -- the list renders a title as
+    "Procurement of surgical equipment" where the detail page says "Procurement
+    of Surgical Equipment" -- and each sweep would otherwise rewrite the other,
+    producing an endless stream of corrigenda.
     """
     updates: dict[str, Any] = {}
     for name in TenderRecord.model_fields:
@@ -213,6 +224,13 @@ def merge_records(stored: TenderRecord, incoming: TenderRecord) -> TenderRecord:
             continue
         if isinstance(value, (list, str)) and len(value) == 0:
             continue
+        if fill_only:
+            current = getattr(stored, name)
+            has_value = current is not None and not (
+                isinstance(current, (list, str)) and len(current) == 0
+            )
+            if has_value:
+                continue
         updates[name] = value
     return stored.model_copy(update=updates)
 
@@ -239,7 +257,12 @@ async def upsert_tender(
         )
 
     stored = _row_to_record(existing, source_key)
-    merged = merge_records(stored, incoming)
+    # Detail pages are authoritative. Once one has been seen, a later list
+    # sweep may only fill gaps, never contradict it.
+    seen_detail = existing.get("detail_fetched_at") is not None
+    merged = merge_records(
+        stored, incoming, fill_only=seen_detail and not is_detail
+    )
     new_hash = merged.canonical_hash()
 
     if new_hash == existing["canonical_hash"]:
@@ -255,8 +278,31 @@ async def upsert_tender(
         return UpsertOutcome(int(existing["id"]), UpsertResult.UNCHANGED, {})
 
     diff = merged.changed_fields(stored)
-    change_type = merged.infer_change_type(stored)
     tender_id = int(existing["id"])
+
+    if not diff:
+        # The hash moved but no field did. That is always a serialization bug
+        # (a Decimal scale, a timezone, a normalization form), never a real
+        # corrigendum. Writing a version here would spam every subscriber with
+        # phantom amendments, so store the corrected hash to self-heal and say
+        # so loudly instead.
+        log.warning(
+            "hash changed with no field diff for %s/%s; healing stored hash",
+            source_key,
+            incoming.external_ref,
+        )
+        await conn.execute(
+            """
+            UPDATE tenders
+               SET canonical_hash = %s, last_seen_at = now(),
+                   detail_fetched_at = CASE WHEN %s THEN now() ELSE detail_fetched_at END
+             WHERE id = %s
+            """,
+            (new_hash, is_detail, tender_id),
+        )
+        return UpsertOutcome(tender_id, UpsertResult.UNCHANGED, {})
+
+    change_type = merged.infer_change_type(stored)
 
     cur = await conn.execute(
         "SELECT COALESCE(MAX(version_no), 0) AS v FROM tender_versions WHERE tender_id = %s",
