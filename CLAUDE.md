@@ -552,7 +552,36 @@ claiming a 30-minute refresh.
 systemd unit on the VPS with restart-on-failure. Until then the freshness claim
 is only true while someone is watching, which is the opposite of the promise.
 
-## 18. Right now
+## 18. Legal check (§8) — research done, review still outstanding
+
+Findings are in [docs/legal-review.md](docs/legal-review.md). Researched
+2026-09-14 against the live portal. **Not legal advice**; §8's instruction to
+get a qualified review still stands and is not discharged by that document.
+
+The four things worth knowing without opening it:
+
+1. **The terms read as a registered-user agreement**, scoped to "e-GP user
+   services" and followed entirely by registration, credentials and payment
+   clauses. Nothing addresses scraping, crawl rate or redistribution by name.
+   That silence is the central question, not an answer.
+2. **There is a broad copyright assertion** covering the information on the
+   portal, not only its software. Whether that reaches the *facts* in a tender
+   notice — closing dates, package numbers, entity names — or only the
+   compilation is the question that decides what we may store and re-display.
+3. **There is no robots.txt at all**; the path returns the session page. So
+   §8.1's "respect robots.txt" is vacuous here, as already noted in §13.
+4. **BPPA has no public API, but it does have a statutory RTI route** —
+   a designated Information Officer, an appeals path, and published RTI rules,
+   under the Right to Information Act 2009. That turns §8's "somehow" into a
+   named official channel.
+
+**Recommended sequence:** file the RTI request with BPPA's Designated Officer
+first (cheap, official, produces a written answer from the data owner), then
+take the copyright and binding questions to a Bangladeshi IP/IT lawyer with the
+brief in hand. Both before the site is public — which Gate 1 means is not
+imminent anyway.
+
+## 19. Right now
 
 Phase 0, task 1 is **built**: source adapter framework, e-GP tender-search
 adapter, raw archive, dedup + versioning, crawl scheduler, yield monitoring.
