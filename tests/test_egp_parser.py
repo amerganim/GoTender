@@ -12,6 +12,7 @@ from tenderradar.adapters.base import FetchResult, PayloadKind
 from tenderradar.adapters.egp import (
     EgpTenderAdapter,
     _method_code,
+    is_portal_test_record,
     parse_dhaka_datetime,
     parse_money,
 )
@@ -265,3 +266,78 @@ def test_list_row_without_package_number_keeps_description_in_place(
         # The description must never be left empty while a package number
         # holds the prose that belongs in it.
         assert record.description, record.external_ref
+
+
+# ------------------------------------------- e-GP's own demonstration record
+
+
+def test_the_portal_test_record_is_excluded():
+    """e-GP publishes a training row inside its own Live feed.
+
+    It is self-described as invalid and carries a closing date years out, so
+    no status or date filter catches it. A contractor seeing "This is an
+    Invalid Tender" among their results reasonably concludes the service is
+    unreliable.
+    """
+    assert is_portal_test_record(
+        "This is an Invalid Tender.This is used to explain corrigendum "
+        "process in egp system."
+    )
+
+
+@pytest.mark.parametrize(
+    "description",
+    [
+        "Supply of electrical equipment",
+        "Construction of RCC culvert",
+        # Realistic near misses. A filter that caught these would hide real
+        # tenders, and nobody would report it -- users cannot miss what they
+        # never saw.
+        "Tenders submitted after the deadline will be treated as invalid",
+        "An invalid tender security will result in rejection",
+        "Procurement of invalid tender document printing services",
+        "Invalid submissions are rejected under PPR 2008",
+        None,
+        "",
+    ],
+)
+def test_genuine_tenders_are_never_excluded(description):
+    assert not is_portal_test_record(description)
+
+
+def test_exclusion_checks_every_field_given():
+    assert is_portal_test_record(None, "used to explain corrigendum process")
+    assert not is_portal_test_record(None, None)
+
+
+def test_list_parsing_drops_the_test_record(adapter: EgpTenderAdapter):
+    """A row the portal declares invalid must not survive into the corpus."""
+    row = (
+        "<tr><td>1</td>"
+        "<td>18659<br/>REF-1<br/><label>Live</label></td>"
+        "<td>Works,<br/><p>This is an Invalid Tender.This is used to explain "
+        "corrigendum process in egp system.</p></td>"
+        "<td>LGED Pabna</td><td>NCT,<br/>OTM</td>"
+        "<td>06-Jan-2016 10:00,<br/>20-Mar-2028 13:00</td></tr>"
+    ).encode()
+    assert adapter.parse(
+        FetchResult(url="x", content=row, kind=PayloadKind.LIST)
+    ) == []
+
+
+def test_a_normal_row_alongside_it_still_parses(adapter: EgpTenderAdapter):
+    """The filter must remove one row, not the whole page."""
+    rows = (
+        "<tr><td>1</td><td>18659<br/>REF-1<br/><label>Live</label></td>"
+        "<td>Works,<br/><p>This is an Invalid Tender.</p></td>"
+        "<td>LGED Pabna</td><td>NCT,<br/>OTM</td>"
+        "<td>06-Jan-2016 10:00,<br/>20-Mar-2028 13:00</td></tr>"
+        "<tr><td>2</td><td>99999<br/>REF-2<br/><label>Live</label></td>"
+        "<td>Goods,<br/><p>Supply of office furniture</p></td>"
+        "<td>Some Office</td><td>NCT,<br/>OTM</td>"
+        "<td>06-Jan-2026 10:00,<br/>20-Mar-2026 13:00</td></tr>"
+    ).encode()
+    records = adapter.parse(
+        FetchResult(url="x", content=rows, kind=PayloadKind.LIST)
+    )
+    assert [r.external_ref for r in records] == ["99999"]

@@ -70,6 +70,28 @@ _PACKAGE_NO_RE = re.compile(r"^(?=.*[\d/])[\w./()\-]+$")
 # Marker proving we got a real result fragment rather than the session page.
 _SESSION_EXPIRED = "Session Expired"
 
+# e-GP publishes a training record inside its own Live feed, self-described as
+# invalid and used to demonstrate the corrigendum process. It carries a closing
+# date years out, so nothing else filters it, and a contractor who sees "This
+# is an Invalid Tender" in their results reasonably concludes the whole service
+# is unreliable.
+#
+# Matched on the portal's own wording, and only on phrases no genuine
+# procurement notice would contain. Every exclusion is logged with its
+# reference, because a filter that silently over-matched would hide real
+# tenders -- the one failure mode nobody would ever report, since users cannot
+# miss what they never saw.
+_TEST_RECORD_MARKERS = (
+    "this is an invalid tender",
+    "used to explain corrigendum process",
+)
+
+
+def is_portal_test_record(*texts: str | None) -> bool:
+    """True when the portal itself declares the row to be demonstration data."""
+    haystack = " ".join(t for t in texts if t).lower()
+    return any(marker in haystack for marker in _TEST_RECORD_MARKERS)
+
 
 def parse_dhaka_datetime(value: str | None) -> datetime | None:
     """Parse a portal timestamp as Asia/Dhaka, return UTC (§9)."""
@@ -326,6 +348,13 @@ class EgpTenderAdapter(SourceAdapter):
         published_at = parse_dhaka_datetime(dates[0]) if dates else None
         closing_at = parse_dhaka_datetime(dates[1]) if len(dates) > 1 else None
 
+        if is_portal_test_record(description, package_no):
+            log.info(
+                "skipping e-GP demonstration record %s: %r",
+                external_ref, (description or "")[:60],
+            )
+            return None
+
         return TenderRecord(
             source_key=self.key,
             external_ref=external_ref,
@@ -421,6 +450,10 @@ class EgpTenderAdapter(SourceAdapter):
         status = _STATUS_MAP.get(
             (self._first_present(fields, "tender/proposal status") or "live").lower(), TenderStatus.LIVE
         )
+
+        if is_portal_test_record(description, package_no):
+            log.info("skipping e-GP demonstration record %s (detail)", external_ref)
+            return None
 
         lots = self._parse_lots(tree)
         # Security is stated per lot; the tender-level proxy is their sum.

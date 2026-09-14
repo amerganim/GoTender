@@ -45,6 +45,7 @@ from tenderradar.adapters.egp import (
     _SESSION_EXPIRED,
     _lines,
     _method_code,
+    is_portal_test_record,
     parse_dhaka_datetime,
 )
 from tenderradar.models import (
@@ -214,6 +215,10 @@ class EgpOfflineTenderAdapter(SourceAdapter):
             else ProcurementNature.OTHER
         )
         description = " ".join(brief[1:]) if len(brief) > 1 else None
+
+        if is_portal_test_record(description):
+            log.info("skipping e-GP demonstration record %s (offline)", external_ref)
+            return None
 
         organization = self._organization_from_parts(_lines(cells[3]))
 
