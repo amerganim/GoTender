@@ -3,6 +3,10 @@
 Draft for you to review, complete and file **in your own name**. I have not
 sent anything and cannot: this is a legal filing that has to come from you.
 
+A Bangla version is at [rti-request-bn.md](rti-request-bn.md), and that is the
+one to file — Form 'ka' and official correspondence are in Bangla. This English
+version carries the reasoning behind each question.
+
 Verify the procedural details in the box below against the current rules before
 filing — the Act's fee schedule and response deadlines are the sort of thing
 that gets amended, and I would rather you check than take my word for it.
