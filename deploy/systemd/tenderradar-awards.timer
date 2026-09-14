@@ -1,0 +1,12 @@
+[Unit]
+Description=Collect contract awards daily
+
+[Timer]
+# 20:00 UTC (02:00 Dhaka) — well away from the crawl and the digest, so three
+# jobs never compete for one small VPS at once.
+OnCalendar=*-*-* 20:00:00 UTC
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

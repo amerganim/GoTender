@@ -1,0 +1,36 @@
+[Unit]
+Description=TenderRadar public site
+Documentation=https://github.com/amerganim/GoTender
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=tenderradar
+Group=tenderradar
+WorkingDirectory=/opt/tenderradar
+EnvironmentFile=/opt/tenderradar/.env
+# Bind to localhost only; nginx terminates TLS and proxies in. Exposing
+# uvicorn directly would serve the site over plaintext HTTP.
+ExecStart=/opt/tenderradar/.venv/bin/python -m tenderradar.cli serve --host 127.0.0.1 --port 8020
+
+Restart=always
+RestartSec=5
+# If it crash-loops, stop trying and leave the unit failed so it is visible
+# rather than silently thrashing.
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+# Hardening: the web process needs to read the code, write nothing but logs.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tenderradar/storage
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

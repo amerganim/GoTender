@@ -1,0 +1,38 @@
+[Unit]
+Description=TenderRadar crawl scheduler (every 30 minutes)
+Documentation=https://github.com/amerganim/GoTender
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=tenderradar
+Group=tenderradar
+WorkingDirectory=/opt/tenderradar
+EnvironmentFile=/opt/tenderradar/.env
+ExecStart=/opt/tenderradar/.venv/bin/python -m tenderradar.cli schedule --interval 30
+
+# This unit IS the 30-minute freshness claim. It ran once in a dev session and
+# died overnight, leaving the homepage claiming a refresh that was not
+# happening (§17). Restart unconditionally, including after a clean exit,
+# because a scheduler that has stopped is always wrong.
+Restart=always
+RestartSec=30
+
+# Deliberately NO StartLimitBurst: never give up on the crawler. A crawler
+# that stops is invisible to users -- they simply never hear about tenders.
+StartLimitIntervalSec=0
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# The raw archive (§8.4) and the embedding model cache both live here.
+ReadWritePaths=/opt/tenderradar/storage /opt/tenderradar/.cache
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

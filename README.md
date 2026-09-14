@@ -149,6 +149,21 @@ a hash change with no field change is a serialization bug, never a corrigendum.
 - All timestamps stored UTC, displayed Asia/Dhaka. Text is NFC-normalized on
   ingest (§9).
 
+## Deploying
+
+See [deploy/README.md](deploy/README.md). One VPS: Postgres, the site, the
+crawler and the timers on one machine, per §5.
+
+The unit that matters is `tenderradar-scheduler`. It IS the 30-minute
+freshness claim, and the claim is only true while something restarts it — a
+scheduler started in a terminal died overnight and left the homepage
+advertising a refresh that was not happening.
+
+```bash
+python -m tenderradar.cli daily    # embed, match, digest -- in that order
+python -m tenderradar.cli awards   # contract award collection
+```
+
 ## Before launch
 
 ⚠️ The legal check in §8 is **not done**. Read the e-GP terms of use and find

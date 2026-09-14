@@ -1,0 +1,27 @@
+[Unit]
+Description=TenderRadar daily pipeline (embed, match, digest)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=tenderradar
+Group=tenderradar
+WorkingDirectory=/opt/tenderradar
+EnvironmentFile=/opt/tenderradar/.env
+# One command, because the ordering matters: a digest built before matching
+# sends yesterday's list, and matching before embedding skips every tender
+# crawled since the last run.
+ExecStart=/opt/tenderradar/.venv/bin/python -m tenderradar.cli daily
+
+# Embedding the backlog on a small VPS is CPU-bound; be a good neighbour to
+# the web process, which is what users are waiting on.
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=3600
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tenderradar/storage /opt/tenderradar/.cache

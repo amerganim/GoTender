@@ -1,0 +1,24 @@
+[Unit]
+Description=TenderRadar contract award collection
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=tenderradar
+Group=tenderradar
+WorkingDirectory=/opt/tenderradar
+EnvironmentFile=/opt/tenderradar/.env
+# Newest-first listing, so a handful of pages covers a day comfortably.
+# Awards are immutable once signed, so re-reading overlap costs nothing.
+ExecStart=/opt/tenderradar/.venv/bin/python -m tenderradar.cli awards --pages 10
+
+Nice=15
+IOSchedulingClass=idle
+TimeoutStartSec=1800
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tenderradar/storage

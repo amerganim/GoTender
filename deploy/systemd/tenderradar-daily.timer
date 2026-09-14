@@ -1,0 +1,18 @@
+[Unit]
+Description=Run the TenderRadar daily pipeline each morning
+
+[Timer]
+# 02:00 UTC is 08:00 Asia/Dhaka. Contractors check tenders over breakfast, and
+# a digest that lands mid-afternoon competes with the working day.
+# Times are UTC because the server clock is UTC (§9); do not "fix" this by
+# changing the server timezone.
+OnCalendar=*-*-* 02:00:00 UTC
+# Fire on boot if the machine was down at 02:00, so a reboot never silently
+# costs a day's digests.
+Persistent=true
+# Stagger slightly so a fleet of VPSes would not hit the mail provider in
+# lockstep, and so a restart does not coincide exactly with the crawl.
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

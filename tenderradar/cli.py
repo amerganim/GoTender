@@ -170,6 +170,57 @@ async def cmd_awards(args: argparse.Namespace) -> int:
     return 0
 
 
+async def cmd_daily(args: argparse.Namespace) -> int:
+    """Embed, match, then send digests -- in that order, which matters.
+
+    A digest built before matching runs would send yesterday's list, and
+    matching before embedding would silently skip every tender crawled since
+    the last run. One command so the ordering cannot be got wrong by a timer.
+
+    Each stage is allowed to fail without aborting the rest: a mail outage
+    should not cost a day of embeddings, and the next run picks up whatever
+    was missed.
+    """
+    from tenderradar.alerts import service as alert_service
+    from tenderradar.matching import embeddings, engine
+
+    failures = []
+
+    async with connection() as conn:
+        try:
+            embedded = await embeddings.embed_backlog(conn, limit=args.embed_limit)
+            print(f"embedded {embedded} tenders")
+        except Exception as exc:  # noqa: BLE001
+            failures.append(f"embed: {exc}")
+            log.exception("daily: embedding failed")
+
+        try:
+            reports = await engine.match_all_users(conn)
+            print(f"matched {len(reports)} users")
+        except Exception as exc:  # noqa: BLE001
+            failures.append(f"match: {exc}")
+            log.exception("daily: matching failed")
+
+        try:
+            sent = await alert_service.send_all(conn, dry_run=args.dry_run)
+            print(f"digests: {sum(1 for r in sent if r.sent)} sent of {len(sent)}")
+        except Exception as exc:  # noqa: BLE001
+            failures.append(f"digest: {exc}")
+            log.exception("daily: digests failed")
+
+        stats = await engine.match_precision(conn)
+
+    precision = stats["precision"]
+    shown = "no ratings yet" if precision is None else f"{precision:.0%}"
+    print(f"match precision: {shown} (target {stats['target']:.0%})")
+
+    for failure in failures:
+        print("FAILED:", failure)
+    await close_pool()
+    # Non-zero so systemd records the failure and OnFailure can alert.
+    return 1 if failures else 0
+
+
 async def cmd_serve(args: argparse.Namespace) -> int:
     """Run the public site.
 
@@ -346,6 +397,11 @@ def main() -> int:
     p.add_argument("--pages", type=int, default=5,
                    help="newest-first; 5 is plenty for a daily run")
     p.set_defaults(func=cmd_awards)
+
+    p = sub.add_parser("daily", help="embed, match and send digests, in order")
+    p.add_argument("--embed-limit", type=int, default=100000)
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_daily)
 
     p = sub.add_parser("serve", help="run the public tender directory")
     p.add_argument("--host", default="127.0.0.1")
