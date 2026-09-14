@@ -581,6 +581,15 @@ take the copyright and binding questions to a Bangladeshi IP/IT lawyer with the
 brief in hand. Both before the site is public — which Gate 1 means is not
 imminent anyway.
 
+A draft request is ready at [docs/rti-request.md](docs/rti-request.md). It must
+be filed in the operator's own name; the procedural details (form, fee,
+deadlines) need checking against the current rules before filing.
+
+Worth naming the upside: if BPPA will grant an official data-sharing
+arrangement, that is worth more than the crawler. It is the one moat a
+competitor scraping the same pages could not copy. The request is written to
+make saying yes easy.
+
 ## 19. Right now
 
 Phase 0, task 1 is **built**: source adapter framework, e-GP tender-search
