@@ -157,6 +157,19 @@ async def cmd_push(args: argparse.Namespace) -> int:
     return 0
 
 
+async def cmd_awards(args: argparse.Namespace) -> int:
+    """Collect contract awards (Phase 5 data, started early on purpose)."""
+    from tenderradar.awards import collector
+
+    async with connection() as conn:
+        report = await collector.collect(conn, max_pages=args.pages)
+    print(report.summary())
+    for error in report.errors:
+        print("  error:", error)
+    await close_pool()
+    return 0
+
+
 async def cmd_serve(args: argparse.Namespace) -> int:
     """Run the public site.
 
@@ -328,6 +341,11 @@ def main() -> int:
     p = sub.add_parser("push", help="send push alerts for tenders closing soon")
     p.add_argument("--hours", type=int, default=48)
     p.set_defaults(func=cmd_push)
+
+    p = sub.add_parser("awards", help="collect contract award records")
+    p.add_argument("--pages", type=int, default=5,
+                   help="newest-first; 5 is plenty for a daily run")
+    p.set_defaults(func=cmd_awards)
 
     p = sub.add_parser("serve", help="run the public tender directory")
     p.add_argument("--host", default="127.0.0.1")

@@ -512,7 +512,47 @@ Do not add more adapters chasing 8,500 until that figure is checked against
 Alltender's live site. Building sources to hit a number nobody has verified is
 how the budget gets spent on the wrong thing.
 
-## 16. Right now
+## 16. Award intelligence — collection started early, deliberately
+
+§4 places award intelligence in Phase 5 and says to prioritise it because it
+compounds. It is the one item in this project with a genuine time value:
+**awards cannot be backfilled from the future.** Every month not collecting is
+a month of history permanently lost.
+
+Collection therefore starts now. The FEATURES built on it stay behind Gate 4 —
+storing rows is not shipping a product.
+
+Source: `POST /SearchNoaServlet`, ~43,873 pages at size 20 (~877,000 awards),
+newest first. Each row carries the winner, the procuring entity, the district,
+the signing date and the contract value, and links back to a tender id.
+
+Two things to know about the data:
+
+* **Value is published in crore BDT, but the column is labelled "(Cr. BDT)
+  /(Other Currency)".** The figure is stored exactly as published and never
+  converted, because a wrong multiplier would silently corrupt every analysis
+  built on it.
+* **Awards do not yet join to our tenders.** 0 of the first 400 matched, which
+  is correct: awards are for tenders already closed and decided, while our
+  corpus holds live ones. The join populates as today's live tenders get
+  awarded over the coming weeks — which is the compounding effect itself.
+
+From the first 400 rows (0.05% of the archive) the §4 questions already answer
+themselves: repeat winners, and procuring entities where every award goes to a
+single firm.
+
+## 17. The scheduler must run on the VPS, not in a dev session
+
+Demonstrated, not theorised. The scheduler was started inside a development
+session on 2026-09-13 at 19:33 UTC and was dead by the next morning, having
+crawled once. Seventeen hours with no crawl, while the homepage went on
+claiming a 30-minute refresh.
+
+**Gate 0's 72-hour unattended run cannot be started this way.** It needs a
+systemd unit on the VPS with restart-on-failure. Until then the freshness claim
+is only true while someone is watching, which is the opposite of the promise.
+
+## 18. Right now
 
 Phase 0, task 1 is **built**: source adapter framework, e-GP tender-search
 adapter, raw archive, dedup + versioning, crawl scheduler, yield monitoring.
