@@ -7,13 +7,14 @@ missed, so every one has a test.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from tenderradar.adapters.base import FetchResult, PayloadKind
 from tenderradar.adapters.egp_offline import (
+    STALE_WITHOUT_CLOSING,
     EgpOfflineTenderAdapter,
     parse_closing_date,
 )
@@ -179,3 +180,62 @@ def test_adapter_is_registered():
     from tenderradar.adapters import registry
 
     assert "egp_offline" in registry
+
+
+# ------------------- trap 5: a missing closing date must not mean "live"
+
+
+def test_a_notice_with_no_closing_date_does_not_stay_live_forever():
+    """The bug this replaced put 2004-2014 notices on the site as current.
+
+    Status used to fall through to Live whenever there was no closing date, so
+    a notice with no stated deadline stayed live indefinitely. Those rows were
+    also unmatchable, because Layer 1 filters on the closing window and NULL
+    never satisfies it -- visible to browsers, invisible to matching, which is
+    the worst of both.
+    """
+    ancient = datetime.now(UTC) - timedelta(days=4400)  # a 2014 notice
+    assert (
+        EgpOfflineTenderAdapter._derive_status(ancient, None) is TenderStatus.CLOSED
+    )
+
+
+def test_a_recent_notice_with_no_closing_date_is_still_shown():
+    """Unknown is not the same as expired.
+
+    A notice published last week with no stated deadline might genuinely be
+    open, so it stays Live and a browsing contractor can judge for themselves.
+    It still will not be alerted on -- we will show a deadline we do not know,
+    but we will not promise one.
+    """
+    recent = datetime.now(UTC) - timedelta(days=7)
+    assert EgpOfflineTenderAdapter._derive_status(recent, None) is TenderStatus.LIVE
+
+
+def test_the_staleness_boundary():
+    now = datetime.now(UTC)
+    inside = now - (STALE_WITHOUT_CLOSING - timedelta(days=1))
+    outside = now - (STALE_WITHOUT_CLOSING + timedelta(days=1))
+    assert EgpOfflineTenderAdapter._derive_status(inside, None) is TenderStatus.LIVE
+    assert EgpOfflineTenderAdapter._derive_status(outside, None) is TenderStatus.CLOSED
+
+
+def test_staleness_window_cannot_hide_a_biddable_tender():
+    """Layer 1 never looks beyond 90 days, so 180 is safely generous."""
+    assert STALE_WITHOUT_CLOSING > timedelta(days=90)
+
+
+def test_a_row_with_no_dates_at_all_is_not_live():
+    """No closing date and no publication date is not evidence of a live
+    tender; it is evidence of a row we cannot date."""
+    assert EgpOfflineTenderAdapter._derive_status(None, None) is TenderStatus.CLOSED
+
+
+def test_an_explicit_closing_date_still_decides():
+    now = datetime.now(UTC)
+    assert EgpOfflineTenderAdapter._derive_status(
+        now - timedelta(days=4400), now + timedelta(days=7)
+    ) is TenderStatus.LIVE
+    assert EgpOfflineTenderAdapter._derive_status(
+        now - timedelta(days=1), now - timedelta(hours=1)
+    ) is TenderStatus.CLOSED

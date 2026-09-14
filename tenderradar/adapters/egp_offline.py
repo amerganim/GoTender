@@ -58,6 +58,12 @@ log = logging.getLogger(__name__)
 
 _DETAIL_RE = re.compile(r"ViewTenderWithoutPQ\.jsp\?p=([A-Za-z0-9]+)")
 
+# How long a notice with no stated closing date is still treated as possibly
+# open. Generous on purpose: tender windows rarely exceed 90 days and Layer 1
+# will not look past 90 either, so 180 cannot hide anything a user could still
+# bid on, while comfortably catching decade-old archive rows.
+STALE_WITHOUT_CLOSING = timedelta(days=180)
+
 
 def parse_closing_date(value: str | None) -> datetime | None:
     """Parse a date-only closing value as the END of that day in Dhaka.
@@ -220,10 +226,8 @@ class EgpOfflineTenderAdapter(SourceAdapter):
         closing_at = parse_closing_date(dates[1]) if len(dates) > 1 else None
 
         # This feed returns closed notices alongside open ones, so status is
-        # derived from the closing date rather than assumed Live.
-        status = TenderStatus.LIVE
-        if closing_at is not None and closing_at <= datetime.now(UTC):
-            status = TenderStatus.CLOSED
+        # derived rather than assumed Live.
+        status = self._derive_status(published_at, closing_at)
 
         detail_url = None
         link = re.search(_DETAIL_RE, cells[2].html or "")
@@ -248,6 +252,44 @@ class EgpOfflineTenderAdapter(SourceAdapter):
             status=status,
             detail_url=detail_url,
             raw_document_id=result.raw_document_id,
+        )
+
+    @staticmethod
+    def _derive_status(
+        published_at: datetime | None, closing_at: datetime | None
+    ) -> TenderStatus:
+        """Decide live vs closed without ever assuming live by default.
+
+        A missing closing date used to fall through to Live, which meant a
+        notice with no stated deadline stayed live forever. On this feed that
+        put 35 notices published between 2004 and 2014 on the site as current
+        tenders -- the oldest twelve years stale.
+
+        Unknown is not the same as open. Where there is no closing date, age
+        decides: a notice published within the staleness window might genuinely
+        still be open and is left Live so a browsing contractor can see it and
+        judge; an older one certainly is not.
+
+        Note that a Live tender with no closing date still will not be alerted
+        on, because Layer 1 filters on the closing window. That is deliberate:
+        we will show a notice whose deadline we do not know, but we will not
+        promise someone a deadline we cannot state.
+        """
+        if closing_at is not None:
+            return (
+                TenderStatus.CLOSED
+                if closing_at <= datetime.now(UTC)
+                else TenderStatus.LIVE
+            )
+        if published_at is None:
+            # No closing date and no publication date is not evidence of a live
+            # tender; it is evidence of a row we cannot date at all.
+            return TenderStatus.CLOSED
+        age = datetime.now(UTC) - published_at
+        return (
+            TenderStatus.CLOSED
+            if age > STALE_WITHOUT_CLOSING
+            else TenderStatus.LIVE
         )
 
     @staticmethod
